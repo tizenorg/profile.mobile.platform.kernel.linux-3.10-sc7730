@@ -370,6 +370,8 @@ extern struct class *mem_class;
 extern struct device *init_kmsg(int minor, umode_t mode);
 extern int kmsg_memory_open(struct inode *inode, struct file *filp);
 extern int kmsg_mode(int minor, umode_t *mode);
+extern int kmsg_sys_buffer_add(size_t size, umode_t mode);
+extern void kmsg_sys_buffer_del(int minor);
 
 #else
 
@@ -387,6 +389,13 @@ static inline int kmsg_mode(int minor, umode_t *mode)
 {
 	return -ENXIO;
 }
+
+static inline int kmsg_sys_buffer_add(size_t size, umode_t mode)
+{
+	return -ENXIO;
+}
+
+static inline void kmsg_sys_buffer_del(int minor) {}
 
 #endif
 #endif
