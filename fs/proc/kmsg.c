@@ -17,7 +17,11 @@
 #include <asm/uaccess.h>
 #include <asm/io.h>
 
-extern wait_queue_head_t log_wait;
+#ifdef CONFIG_MULTIPLE_KMSG
+extern wait_queue_head_t *log_wait;
+#else
+extern wait_queue_head_t  log_wait;
+#endif
 
 static int kmsg_open(struct inode * inode, struct file * file)
 {
@@ -41,7 +45,11 @@ static ssize_t kmsg_read(struct file *file, char __user *buf,
 
 static unsigned int kmsg_poll(struct file *file, poll_table *wait)
 {
+#ifdef CONFIG_MULTIPLE_KMSG
+	poll_wait(file,  log_wait, wait);
+#else
 	poll_wait(file, &log_wait, wait);
+#endif
 	if (do_syslog(SYSLOG_ACTION_SIZE_UNREAD, NULL, 0, SYSLOG_FROM_PROC))
 		return POLLIN | POLLRDNORM;
 	return 0;
