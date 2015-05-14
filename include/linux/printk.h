@@ -33,6 +33,10 @@ static inline const char *printk_skip_level(const char *buffer)
 	return buffer;
 }
 
+#ifdef CONFIG_MULTIPLE_KMSG
+#define CONSOLE_EXT_LOG_MAX 8192
+#endif
+
 extern int console_printk[];
 
 #define console_loglevel (console_printk[0])
