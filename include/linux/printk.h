@@ -357,6 +357,40 @@ extern void dump_stack(void) __cold;
 
 extern const struct file_operations kmsg_fops;
 
+#ifdef CONFIG_MULTIPLE_KMSG
+struct file;
+struct inode;
+
+#ifdef CONFIG_PRINTK
+
+extern struct class *mem_class;
+
+#define KMSG_MINOR	11
+
+extern struct device *init_kmsg(int minor, umode_t mode);
+extern int kmsg_memory_open(struct inode *inode, struct file *filp);
+extern int kmsg_mode(int minor, umode_t *mode);
+
+#else
+
+static inline struct device *init_kmsg(int minor, umode_t mode)
+{
+	return NULL;
+}
+
+static inline int kmsg_memory_open(struct inode *inode, struct file *filp)
+{
+	return -ENXIO;
+}
+
+static inline int kmsg_mode(int minor, umode_t *mode)
+{
+	return -ENXIO;
+}
+
+#endif
+#endif
+
 enum {
 	DUMP_PREFIX_NONE,
 	DUMP_PREFIX_ADDRESS,
