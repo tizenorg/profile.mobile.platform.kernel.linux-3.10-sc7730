@@ -25,10 +25,6 @@ BuildRequires:	system-tools
 BuildRequires:	bc
 ExclusiveArch:  %arm
 
-%if "%{tizen_target_name}" != "Z300H"
-ExcludeArch: %{arm}
-%endif
-
 %description
 The Linux Kernel, the operating system core itself
 
