@@ -4,8 +4,8 @@ Name: linux-3.10-sc7730
 Summary: The Linux Kernel
 Version: Tizen_sc7730_20150907_1_2edc4585
 Release: 1
-License: GPL
-Group: System Environment/Kernel
+License: GPL-2.0
+Group: System/Kernel
 Vendor: The Linux Community
 URL: http://www.kernel.org
 Source0: %{name}-%{version}.tar.gz
@@ -34,41 +34,41 @@ The Linux Kernel, the operating system core itself
 for targets in string.gmatch(rpm.expand("%{BOARDS}"), "[%w_-]+")
 do
 print("%package -n linux-3.10-sc7730_"..targets.." \n")
-print("License:        TO_BE_FILLED \n")
+print("License:        GPL-2.0 \n")
 print("Summary:        Linux support headers for userspace development \n")
-print("Group:          TO_BE_FILLED/TO_BE_FILLED \n")
+print("Group:          System/Kernel \n")
 print("Requires(post): coreutils \n")
 print("\n")
 print("%files -n linux-3.10-sc7730_"..targets.." \n")
-print("/var/tmp/kernel/mod_"..targets.." \n")
-print("/var/tmp/kernel/kernel-"..targets.."/dzImage \n")
-print("/var/tmp/kernel/kernel-"..targets.."/dzImage-recovery \n")
+print("/boot/kernel/mod_"..targets.." \n")
+print("/boot/kernel/kernel-"..targets.."/dzImage \n")
+print("/boot/kernel/kernel-"..targets.."/dzImage-recovery \n")
 print("\n")
 print("%post -n linux-3.10-sc7730_"..targets.." \n")
-print("mv /var/tmp/kernel/mod_"..targets.."/lib/modules/* /lib/modules/. \n")
-print("mv /var/tmp/kernel/kernel-"..targets.."/dzImage /var/tmp/kernel/. \n")
-print("mv /var/tmp/kernel/kernel-"..targets.."/dzImage-recovery /var/tmp/kernel/. \n")
+print("mv /boot/kernel/mod_"..targets.."/lib/modules/* /lib/modules/. \n")
+print("mv /boot/kernel/kernel-"..targets.."/dzImage /boot/kernel/. \n")
+print("mv /boot/kernel/kernel-"..targets.."/dzImage-recovery /boot/kernel/. \n")
 print("\n")
 print("%description -n linux-3.10-sc7730_"..targets.." \n")
 print("This package provides the sc7730_eur linux kernel image & module.img. \n")
 print("\n")
 print("%package -n linux-3.10-sc7730_"..targets.."-debuginfo \n")
-print("License:        TO_BE_FILLED \n")
+print("License:        GPL-2.0 \n")
 print("Summary:        Linux support headers for userspace development \n")
-print("Group:          TO_BE_FILLED/TO_BE_FILLED \n")
+print("Group:          System/Kernel \n")
 print("\n")
 print("%files -n linux-3.10-sc7730_"..targets.."-debuginfo \n")
-print("/var/tmp/kernel/mod_"..targets.." \n")
-print("/var/tmp/kernel/kernel-"..targets.." \n")
+print("/boot/kernel/mod_"..targets.." \n")
+print("/boot/kernel/kernel-"..targets.." \n")
 print("\n")
 print("%description -n linux-3.10-sc7730_"..targets.."-debuginfo \n")
 print("This package provides the sc7730_eur linux kernel's debugging files. \n")
 end }
 
 %package -n kernel-headers-3.10-sc7730
-License:        TO_BE_FILLED
+License:        GPL-2.0
 Summary:        Linux support headers for userspace development
-Group:          TO_BE_FILLED/TO_BE_FILLED
+Group:          System/Kernel
 Provides:       kernel-headers, kernel-headers-tizen-dev
 Obsoletes:      kernel-headers
 
@@ -78,7 +78,7 @@ headers are used by the installed headers for GNU glibc and other system
  libraries.
 
 %package -n kernel-devel-3.10-sc7730
-License:        GPL
+License:        GPL-2.0
 Summary:        Linux support kernel map and etc for other package
 Group:          System/Kernel
 Provides:       kernel-devel-tizen-dev
@@ -87,7 +87,7 @@ Provides:       kernel-devel-tizen-dev
 This package provides kernel map and etc information.
 
 %package -n linux-kernel-license
-License:        GPL
+License:        GPL-2.0
 Summary:        Linux support kernel license file
 Group:          System/Kernel
 
@@ -156,29 +156,31 @@ rm -f %{buildroot}/usr/include/asm*/io.h
 mkdir -p %{buildroot}/usr/share/license
 cp -vf COPYING %{buildroot}/usr/share/license/linux-kernel
 
-mkdir -p %{buildroot}/var/tmp/kernel/devel
+mkdir -p %{buildroot}/boot/kernel/devel
 
 for i in %{BOARDS}; do
 	target=$i
 
-	mkdir -p %{buildroot}/var/tmp/kernel/kernel-$i
+	mkdir -p %{buildroot}/boot/kernel/kernel-$i
 
-	mv %_builddir/mod_$target %{buildroot}/var/tmp/kernel/mod_$i
+	mv %_builddir/mod_$target %{buildroot}/boot/kernel/mod_$i
 
-	mv %_builddir/zImage.$target %{buildroot}/var/tmp/kernel/kernel-$i/zImage
-	mv %_builddir/dzImage.$target %{buildroot}/var/tmp/kernel/kernel-$i/dzImage
-	mv %_builddir/dzImage-recovery.$target %{buildroot}/var/tmp/kernel/kernel-$i/dzImage-recovery
+	mv %_builddir/zImage.$target %{buildroot}/boot/kernel/kernel-$i/zImage
+	mv %_builddir/dzImage.$target %{buildroot}/boot/kernel/kernel-$i/dzImage
+	mv %_builddir/dzImage-recovery.$target %{buildroot}/boot/kernel/kernel-$i/dzImage-recovery
 
-	mv %_builddir/System.map.$target %{buildroot}/var/tmp/kernel/kernel-$i/System.map
-	mv %_builddir/config.$target %{buildroot}/var/tmp/kernel/kernel-$i/config
-	mv %_builddir/vmlinux.$target %{buildroot}/var/tmp/kernel/kernel-$i/vmlinux
+	mv %_builddir/System.map.$target %{buildroot}/boot/kernel/kernel-$i/System.map
+	mv %_builddir/config.$target %{buildroot}/boot/kernel/kernel-$i/config
+	mv %_builddir/vmlinux.$target %{buildroot}/boot/kernel/kernel-$i/vmlinux
 
-	mv %_builddir/kernel-devel-$target %{buildroot}/var/tmp/kernel/devel/kernel-devel-$i
+	mv %_builddir/kernel-devel-$target %{buildroot}/boot/kernel/devel/kernel-devel-$i
 done
 
-find %{buildroot}/var/tmp/kernel/ -name 'System.map' -not -path "%{buildroot}/var/tmp/kernel/devel/*" > develfiles.pre # for secure storage
-find %{buildroot}/var/tmp/kernel/ -name 'vmlinux' -not -path "%{buildroot}/var/tmp/kernel/devel/*" >> develfiles.pre   # for TIMA
-find %{buildroot}/var/tmp/kernel/ -name '*.ko' -not -path "%{buildroot}/var/tmp/kernel/devel/*" >> develfiles.pre      # for TIMA
+find %{buildroot}/boot/kernel/ -name "*.h" -exec chmod 644 {} \;
+
+find %{buildroot}/boot/kernel/ -name 'System.map' -not -path "%{buildroot}/boot/kernel/devel/*" > develfiles.pre # for secure storage
+find %{buildroot}/boot/kernel/ -name 'vmlinux' -not -path "%{buildroot}/boot/kernel/devel/*" >> develfiles.pre   # for TIMA
+find %{buildroot}/boot/kernel/ -name '*.ko' -not -path "%{buildroot}/boot/kernel/devel/*" >> develfiles.pre      # for TIMA
 cat develfiles.pre | sed -e "s#%{buildroot}##g" | uniq | sort > develfiles
 
 %clean
@@ -191,4 +193,4 @@ rm -rf %_builddir
 /usr/share/license/*
 
 %files -n kernel-devel-3.10-sc7730 -f develfiles
-/var/tmp/kernel/devel/*
+/boot/kernel/devel/*
