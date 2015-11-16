@@ -14,6 +14,8 @@
 #ifndef _SPRDFB_H_
 #define _SPRDFB_H_
 
+#include <uapi/video/sprdfb.h>
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
@@ -72,44 +74,12 @@ enum{
 	RGB_LCD_TIMING_KIND_MAX
 };
 
-
 #ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
-#define SPRD_LAYER_IMG (0x01)	/*support YUV & RGB*/
-#define SPRD_LAYER_OSD (0x02)	/*support RGB only*/
-#define SPRD_LAYER_BOTH (0x03)	/*support RGB only*/
-
-enum {
-	SPRD_DATA_TYPE_YUV422 = 0,
-	SPRD_DATA_TYPE_YUV420,
-	SPRD_DATA_TYPE_YUV400,
-	SPRD_DATA_TYPE_RGB888,
-	SPRD_DATA_TYPE_RGB666,
-	SPRD_DATA_TYPE_RGB565,
-	SPRD_DATA_TYPE_RGB555,
-	SPRD_DATA_TYPE_YUV422_3P = 8,
-	SPRD_DATA_TYPE_YUV420_3P,
-	SPRD_DATA_TYPE_LIMIT
-};
-
-enum{
-	SPRD_IMG_DATA_ENDIAN_B0B1B2B3 = 0,
-	SPRD_IMG_DATA_ENDIAN_B3B2B1B0,
-	SPRD_IMG_DATA_ENDIAN_B2B3B0B1,
-	SPRD_IMG_DATA_ENDIAN_B1B0B3B2,
-	SPRD_IMG_DATA_ENDIAN_LIMIT
-};
-
 enum{
 	SPRD_OVERLAY_STATUS_OFF = 0,
 	SPRD_OVERLAY_STATUS_ON,
 	SPRD_OVERLAY_STATUS_STARTED,
 	SPRD_OVERLAY_STATUS_MAX
-};
-
-enum{
-	SPRD_OVERLAY_DISPLAY_ASYNC = 0,
-	SPRD_OVERLAY_DISPLAY_SYNC,
-	SPRD_OVERLAY_DISPLAY_MAX
 };
 
 enum {
@@ -119,55 +89,13 @@ enum {
 	SPRD_DISPLAY_UPDATE_MAX
 };
 
-typedef struct overlay_rect {
-	uint16_t x;
-	uint16_t y;
-	uint16_t w;
-	uint16_t h;
-} overlay_rect;
-
-typedef struct overlay_info {
-	int layer_index;
-	int data_type;
-	int y_endian;
-	int uv_endian;
-	bool rb_switch;
-	overlay_rect rect;
-	int v_endian;
-} overlay_info;
-
-#if defined (CONFIG_DRM_SPRD) && defined (CONFIG_SPRDFB_USE_GEM_INDEX)
-typedef struct overlay_handle {
-	int handle;
-	int index;
-} overlay_handle;
-#endif
-
-typedef struct overlay_display {
-	int layer_index;
-#ifdef CONFIG_DRM_SPRD
-#ifdef CONFIG_SPRDFB_USE_GEM_INDEX
-	struct overlay_handle osd_handle;
-	struct overlay_handle img_handle;
-#else
-	int osd_handle;
-	int img_handle;
-#endif
-#else
-	unsigned char *osd_buffer;
-	unsigned char *img_buffer;
-#endif
-	int display_mode;
-} overlay_display;
-
 #ifdef SPRDFB_OVERLAY_DEBUG
 struct ov_info {
-	int y_endian;
-	int uv_endian;
 	int layer_index;
 	unsigned char *osd_buffer;
 	unsigned char *img_buffer;
 	overlay_rect rect;
+	overlay_endian endian;
 };
 #endif
 
@@ -175,10 +103,9 @@ struct ov_info {
 typedef struct overlay_info32{
 	int layer_index;
 	int data_type;
-	int y_endian;
-	int uv_endian;
 	bool rb_switch;
 	overlay_rect rect;
+	overlay_endian endian;
 	compat_caddr_t buffer;
 }overlay_info32;
 #endif

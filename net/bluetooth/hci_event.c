@@ -165,7 +165,7 @@ static void hci_cc_write_link_policy(struct hci_dev *hdev, struct sk_buff *skb)
 		conn->link_policy = get_unaligned_le16(sent + 2);
 #ifdef CONFIG_TIZEN_WIP
 	sco_conn = hci_conn_hash_lookup_sco(hdev);
-	if (sco_conn && bacmp(&sco_conn->dst, &conn->dst) == 0 &&
+	if (sco_conn && conn && bacmp(&sco_conn->dst, &conn->dst) == 0 &&
 			conn->link_policy & HCI_LP_SNIFF) {
 		BT_ERR("SNIFF is not allowed during sco connection");
 		cp.handle = __cpu_to_le16(conn->handle);
@@ -1570,7 +1570,14 @@ static void hci_cs_create_conn(struct hci_dev *hdev, __u8 status)
 	BT_DBG("%s bdaddr %pMR hcon %p", hdev->name, &cp->bdaddr, conn);
 
 	if (status) {
+#ifdef CONFIG_TIZEN_WIP
+		if (status == 0x0b)
+			BT_ERR("ACL Connection Already Exists on cs_create_con");
+
+		if (conn && conn->state == BT_CONNECT && status != 0x0b) {
+#else
 		if (conn && conn->state == BT_CONNECT) {
+#endif
 			if (status != 0x0c || conn->attempt > 2) {
 				conn->state = BT_CLOSED;
 				hci_proto_connect_cfm(conn, status);
@@ -2302,6 +2309,8 @@ static void hci_conn_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)
 		if ((get_link_mode(conn)) & HCI_LM_MASTER)
 			hci_conn_change_supervision_timeout(conn,
 						LINK_SUPERVISION_TIMEOUT);
+	} else if (ev->status == 0x0b) {
+		BT_ERR("ACL connection already exists, this evt is ignored");
 #endif
 	} else {
 		conn->state = BT_CLOSED;
@@ -2313,7 +2322,11 @@ static void hci_conn_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)
 	if (conn->type == ACL_LINK)
 		hci_sco_setup(conn, ev->status);
 
+#ifdef CONFIG_TIZEN_WIP
+	if (ev->status && ev->status != 0x0b) {
+#else
 	if (ev->status) {
+#endif
 		hci_proto_connect_cfm(conn, ev->status);
 		hci_conn_del(conn);
 	} else if (ev->link_type != ACL_LINK)
@@ -4711,6 +4724,10 @@ static void hci_le_conn_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)
 	 */
 	irk = hci_get_irk(hdev, &conn->dst, conn->dst_type);
 	if (irk) {
+#ifdef __TIZEN_PATCH__
+		/* Update rpa. So that, if irk is refreshed, it can be saved */
+		bacpy(&irk->rpa, &conn->dst);
+#endif
 		bacpy(&conn->dst, &irk->bdaddr);
 		conn->dst_type = irk->addr_type;
 	}

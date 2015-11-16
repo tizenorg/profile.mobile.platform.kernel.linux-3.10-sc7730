@@ -583,13 +583,13 @@ static const struct file_operations input_rec_reproduce_fops = {
 
 void debugfs_input_rec(struct dentry *d)
 {
-	if (!debugfs_create_file("check_input_rec", 0644
+	if (!debugfs_create_file("check_input_rec", 0600
 		, d, NULL,&check_input_rec_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "check_input_rec");
-	if (!debugfs_create_file("check_input_rec_detail", 0644
+	if (!debugfs_create_file("check_input_rec_detail", 0600
 		, d, NULL,&check_input_rec_detail_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "check_input_rec_detail");
-	if (!debugfs_create_file("input_rec_reproduce", 0644
+	if (!debugfs_create_file("input_rec_reproduce", 0600
 		, d, NULL,&input_rec_reproduce_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "input_rec_reproduce");
 }

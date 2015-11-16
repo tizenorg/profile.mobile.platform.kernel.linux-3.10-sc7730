@@ -293,7 +293,7 @@ void sprd_drm_gem_destroy(struct sprd_drm_gem_obj *sprd_gem_obj)
 	if (!buf->pages)
 		return;
 
-	DRM_INFO("%s:o[0x%x]a[0x%x]\n", "gf",
+	DRM_DEBUG("%s:o[0x%x]a[0x%x]\n", "gf",
 		(int)obj, (int)sprd_gem_obj->buffer->dma_addr);
 
 	sprd_drm_free_buf(obj->dev, sprd_gem_obj->flags, buf);
@@ -445,7 +445,7 @@ int sprd_drm_gem_create_ioctl(struct drm_device *dev, void *data,
 	do_gettimeofday(&val_end);
 	time_end = (uint64_t)(val_end.tv_sec * 1000000 + val_end.tv_usec);
 
-	DRM_INFO("%s:h[%d]s[%d]f[0x%x]o[0x%x]a[0x%x][%lld us]\n",
+	DRM_DEBUG("%s:h[%d]s[%d]f[0x%x]o[0x%x]a[0x%x][%lld us]\n",
 		"ga",args->handle, (int)args->size, args->flags,
 		(int)&sprd_gem_obj->base,
 		(int)sprd_gem_obj->buffer->dma_addr, time_end - time_start);

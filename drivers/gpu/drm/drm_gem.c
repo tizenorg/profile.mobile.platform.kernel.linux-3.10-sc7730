@@ -242,6 +242,8 @@ drm_gem_handle_delete(struct drm_file *filp, u32 handle)
 	}
 	dev = obj->dev;
 
+	DRM_DEBUG("%s:hdl[%d]obj[0x%x]\n", __func__, handle, (int)obj);
+
 	/* Release reference and decrement refcount. */
 	idr_remove(&filp->object_idr, handle);
 	spin_unlock(&filp->table_lock);

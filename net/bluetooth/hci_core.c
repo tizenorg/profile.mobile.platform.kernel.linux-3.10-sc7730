@@ -3017,7 +3017,11 @@ struct hci_dev *hci_alloc_dev(void)
 	hdev->le_conn_min_interval = 0x0028;
 	hdev->le_conn_max_interval = 0x0038;
 	hdev->le_conn_latency = 0x0000;
-	hdev->le_supv_timeout = 0x002a;
+#ifdef CONFIG_TIZEN_WIP
+	hdev->le_supv_timeout = 0x0258;		/* 6000 msec */
+#else
+	hdev->le_supv_timeout = 0x002a;		/* 420 msec */
+#endif
 	hdev->le_def_tx_len = 0x001b;
 	hdev->le_def_tx_time = 0x0148;
 	hdev->le_max_tx_len = 0x001b;

@@ -373,7 +373,7 @@ static int32_t isp_set_clk(struct isp_k_file *file, enum isp_clk_sel clk_sel)
 		parent = "clk_76p8m";
 		break;
 	case ISP_CLK_NONE:
-		printk("isp_set_clk: close clock %d\n", (int)clk_get_rate(isp_private->clock));
+		/* printk("isp_set_clk: close clock %d\n", (int)clk_get_rate(isp_private->clock)); */
 		if (isp_private->clock) {
 			clk_disable(isp_private->clock);
 			clk_put(isp_private->clock);

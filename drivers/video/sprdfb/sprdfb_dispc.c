@@ -89,12 +89,12 @@
 #define SPRDFB_SATURATION_V         (0x100<<0)//(0x12A<<0)//10-bits
 
 #elif ((defined CONFIG_FB_SCX15) || (defined CONFIG_FB_SCX30G))
-#define SPRDFB_BRIGHTNESS           (0x02<<16)//(0x03<<16)// 9-bits
-#define SPRDFB_CONTRAST             (0x12A<<0) //10-bits
-#define SPRDFB_OFFSET_U             (0x81<<16)//8-bits
-#define SPRDFB_SATURATION_U         (0x123<<0)//(0x12A<<0)//10-bits
-#define SPRDFB_OFFSET_V             (0x82<<16)//8-bits
-#define SPRDFB_SATURATION_V         (0x123<<0)//(0x12A<<0)//10-bits
+#define SPRDFB_BRIGHTNESS           (0x00<<16)//(0x03<<16)// 9-bits
+#define SPRDFB_CONTRAST             (0x100<<0) //10-bits
+#define SPRDFB_OFFSET_U             (0x80<<16)//8-bits
+#define SPRDFB_SATURATION_U         (0x100<<0)//(0x12A<<0)//10-bits
+#define SPRDFB_OFFSET_V             (0x80<<16)//8-bits
+#define SPRDFB_SATURATION_V         (0x100<<0)//(0x12A<<0)//10-bits
 #else
 #define SPRDFB_CONTRAST (74)
 #define SPRDFB_SATURATION (73)
@@ -570,6 +570,8 @@ static void dispc_layer_init(struct fb_var_screeninfo *var)
 		/* B2B3B0B1 */
 		reg_val |= (2 << 8);
 	}
+
+	reg_val |= BIT(17);
 
 	dispc_write(reg_val, DISPC_OSD_CTRL);
 
@@ -1570,7 +1572,8 @@ ERROR_REFRESH:
 
 static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 {
-	pr_info("%s:enable[%d]\n",__func__, dev->enable);
+	pr_info("%s:enable[%d]enabled_layer[0x%x]\n",__func__,
+		dev->enable, dispc_ctx.enabled_layer);
 
 	if (0 != dev->enable){
 		down(&dev->refresh_lock);
@@ -1621,7 +1624,8 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 
 static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 {
-	pr_info("%s:enable[%d]\n",__func__, dev->enable);
+	pr_info("%s:enable[%d]enabled_layer[0x%x]\n",__func__,
+		dev->enable, dispc_ctx.enabled_layer);
 
 	if (dev->enable == 0) {
 #ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
@@ -1645,9 +1649,14 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 		}
 
 		dev->enable = 1;
-		if(dev->panel->is_clean_lcd){
+		if(dev->panel->is_clean_lcd)
 			sprdfb_dispc_clean_lcd(dev);
+
+		if (dispc_ctx.enabled_layer & SPRD_LAYER_OSD) {
+			dispc_clear_bits(BIT(15), DISPC_OSD_CTRL);
+			dispc_set_osd_alpha(0xff);
 		}
+
 		dispc_set_bits(BIT(2), DISPC_INT_EN);
 
 #ifdef CONFIG_FB_ESD_SUPPORT
@@ -1778,42 +1787,42 @@ static int overlay_start(struct sprdfb_device *dev, uint32_t layer_index)
 	return 0;
 }
 
-static int overlay_img_configure(struct sprdfb_device *dev, int type, overlay_rect *rect, int y_endian, int uv_endian, int v_endian, bool rb_switch)
+static int overlay_img_configure(struct sprdfb_device *dev, int type, overlay_size *size,
+	overlay_rect *rect, overlay_endian *endian, bool rb_switch)
 {
 	uint32_t reg_value;
+	int y_endian = endian->y, u_endian = endian->u, v_endian = endian->v;
 
-	pr_debug("sprdfb: [%s] : %d, (%d, %d,%d,%d)\n", __FUNCTION__, type, rect->x, rect->y, rect->h, rect->w);
-
-
-	if (type >= SPRD_DATA_TYPE_LIMIT) {
+	if (type >= SPRD_DATA_FORMAT_LIMIT) {
 		printk(KERN_ERR "sprdfb: Overlay config fail (type error)");
 		return -1;
 	}
 
-	if((y_endian >= SPRD_IMG_DATA_ENDIAN_LIMIT) || (uv_endian >= SPRD_IMG_DATA_ENDIAN_LIMIT)){
-		printk(KERN_ERR "sprdfb: Overlay config fail (y, uv endian error)");
+	if((y_endian >= SPRD_DATA_ENDIAN_LIMIT) || (u_endian >= SPRD_DATA_ENDIAN_LIMIT) ||
+		(v_endian >= SPRD_DATA_ENDIAN_LIMIT)){
+		printk(KERN_ERR "sprdfb: Overlay config fail (endian error)");
 		return -1;
 	}
 
 	dispc_clear_bits(BIT(2), DISPC_OSD_CTRL);
 
 	reg_value = dispc_read(DISPC_IMG_CTRL);
-	reg_value |= (y_endian << 8)|(uv_endian << 10)|(v_endian << 12)|(type << 4);
+	reg_value |= (y_endian << 8)|(u_endian << 10)|(v_endian << 12)|(type << 4);
 
-	if(rb_switch){
+	if(rb_switch)
 		reg_value |= (1 << 15);
-	}
+
 	dispc_write(reg_value, DISPC_IMG_CTRL);
 
 	reg_value = (rect->h << 16) | (rect->w);
 	dispc_write(reg_value, DISPC_IMG_SIZE_XY);
 
-	dispc_write(rect->w, DISPC_IMG_PITCH);
+	dispc_write(size->hsize, DISPC_IMG_PITCH);
 
 	reg_value = (rect->y << 16) | (rect->x);
 	dispc_write(reg_value, DISPC_IMG_DISP_XY);
 
-	if(type < SPRD_DATA_TYPE_RGB888) {
+	if(type < SPRD_DATA_FORMAT_RGB888) {
 		dispc_write(1, DISPC_Y2R_CTRL);
 #ifndef CONFIG_FB_SCX35
 		dispc_write(SPRDFB_BRIGHTNESS|SPRDFB_CONTRAST, DISPC_Y2R_Y_PARAM);
@@ -1845,18 +1854,18 @@ static int overlay_img_configure(struct sprdfb_device *dev, int type, overlay_re
 	return 0;
 }
 
-static int overlay_osd_configure(struct sprdfb_device *dev, int type, overlay_rect *rect, int y_endian, int uv_endian, bool rb_switch)
+static int overlay_osd_configure(struct sprdfb_device *dev, int type, overlay_size *size,
+		overlay_rect *rect, overlay_endian *endian, bool rb_switch)
 {
 	uint32_t reg_value;
+	int y_endian = endian->y;
 
-	pr_debug("sprdfb: [%s] : %d, (%d, %d,%d,%d)\n", __FUNCTION__, type, rect->x, rect->y, rect->h, rect->w);
-
-	if ((type >= SPRD_DATA_TYPE_LIMIT) || (type <= SPRD_DATA_TYPE_YUV400)) {
+	if ((type >= SPRD_DATA_FORMAT_LIMIT) || (type <= SPRD_DATA_FORMAT_YUV400)) {
 		printk(KERN_ERR "sprdfb: Overlay config fail (type error)");
 		return -1;
 	}
 
-	if(y_endian >= SPRD_IMG_DATA_ENDIAN_LIMIT ){
+	if(y_endian >= SPRD_DATA_ENDIAN_LIMIT ){
 		printk(KERN_ERR "sprdfb: Overlay config fail (rgb endian error)");
 		return -1;
 	}
@@ -1872,16 +1881,10 @@ static int overlay_osd_configure(struct sprdfb_device *dev, int type, overlay_re
 	reg_value = (rect->h << 16) | (rect->w);
 	dispc_write(reg_value, DISPC_OSD_SIZE_XY);
 
-	if ((strncmp(current->comm, "Xorg", 4) == 0))
-		dispc_write(ALIGN(rect->w, 32), DISPC_OSD_PITCH);
-	else {
-		dispc_write(rect->w, DISPC_OSD_PITCH);
-		pr_info("DISPC_OSD_PITCH:bypass:align\n");
-	}
+	dispc_write(size->hsize, DISPC_OSD_PITCH);
 
 	reg_value = (rect->y << 16) | (rect->x);
 	dispc_write(reg_value, DISPC_OSD_DISP_XY);
-
 
 	pr_debug("sprdfb: DISPC_OSD_CTRL: 0x%x\n", dispc_read(DISPC_OSD_CTRL));
 	pr_debug("sprdfb: DISPC_OSD_BASE_ADDR: 0x%x\n", dispc_read(DISPC_OSD_BASE_ADDR));
@@ -1933,16 +1936,16 @@ static int32_t sprdfb_dispc_enable_overlay(struct sprdfb_device *dev, struct ove
 		goto ERROR_ENABLE_OVERLAY;
 	}
 
-	pr_info("%s:layer[%d]type[%d]endian[%d %d]rect[%d %d %d %d]\n",
+	pr_info("%s:layer[%d]type[%d]sz[%d %d]r[%d %d %d %d]endian[%d %d %d]\n",
 		"set_ovl",  info->layer_index, info->data_type,
-		info->y_endian, info->uv_endian,
-		info->rect.x, info->rect.y, info->rect.w, info->rect.h);
+		info->size.hsize, info->size.vsize,
+		info->rect.x, info->rect.y, info->rect.w, info->rect.h,
+		info->endian.y, info->endian.u, info->endian.v);
 	dev->dbg_cnt = 5;
 
 #ifdef SPRDFB_OVERLAY_DEBUG
-	dev->overlay_data.y_endian = info->y_endian;
-	dev->overlay_data.uv_endian = info->uv_endian;
 	dev->overlay_data.rect = info->rect;
+	dev->overlay_data.endian = info->endian;
 #endif
 
 	down(&dev->refresh_lock);
@@ -1968,15 +1971,19 @@ static int32_t sprdfb_dispc_enable_overlay(struct sprdfb_device *dev, struct ove
 	}
 #endif
 	if (SPRD_LAYER_IMG == info->layer_index) {
-		result = overlay_img_configure(dev, info->data_type, &(info->rect), info->y_endian, info->uv_endian, info->v_endian, info->rb_switch);
+		result = overlay_img_configure(dev, info->data_type, &info->size, &info->rect,
+			&info->endian, info->rb_switch);
 	} else if (SPRD_LAYER_OSD == info->layer_index) {
-		result = overlay_osd_configure(dev, info->data_type, &(info->rect), info->y_endian, info->uv_endian, info->rb_switch);
+		result = overlay_osd_configure(dev, info->data_type, &info->size, &info->rect,
+			&info->endian, info->rb_switch);
 	} else if (SPRD_LAYER_BOTH == info->layer_index) {
-		result = overlay_img_configure(dev, info->data_type, &(info->rect), info->y_endian, info->uv_endian, info->v_endian, info->rb_switch);
-		result = overlay_osd_configure(dev, info->data_type, &(info->rect), info->y_endian, info->uv_endian, info->rb_switch);
-	} else {
+		result = overlay_img_configure(dev, info->data_type, &info->size, &info->rect,
+			&info->endian, info->rb_switch);
+		result = overlay_osd_configure(dev, info->data_type, &info->size, &info->rect,
+			&info->endian, info->rb_switch);
+	} else
 		printk(KERN_ERR "sprdfb: sprdfb_dispc_enable_overlay fail. (invalid layer index)\n");
-	}
+
 	if (0 != result) {
 		result = -1;
 		goto ERROR_ENABLE_OVERLAY;
@@ -2151,15 +2158,15 @@ static int32_t sprdfb_dispc_display_overlay(struct sprdfb_device *dev, struct ov
 		dispc_write((uint32_t)img_buffer,
 					DISPC_IMG_Y_BASE_ADDR);
 		if (dispc_ctx.overlay_img_info.data_type <
-					SPRD_DATA_TYPE_RGB888) {
+					SPRD_DATA_FORMAT_RGB888) {
 			uint32_t size = rect->w * rect->h;
 			dispc_write((uint32_t)(img_buffer + size),
 					DISPC_IMG_UV_BASE_ADDR);
-		} else if (dispc_ctx.overlay_img_info.data_type == SPRD_DATA_TYPE_YUV422_3P) {
+		} else if (dispc_ctx.overlay_img_info.data_type == SPRD_DATA_FORMAT_YUV422_3P) {
 			uint32_t size = rect->w * rect->h;
 			dispc_write((uint32_t)(img_buffer + size), DISPC_IMG_UV_BASE_ADDR);
 			dispc_write((uint32_t)(img_buffer + size*3/2), DISPC_IMG_V_BASE_ADDR);
-		} else if (dispc_ctx.overlay_img_info.data_type == SPRD_DATA_TYPE_YUV420_3P) {
+		} else if (dispc_ctx.overlay_img_info.data_type == SPRD_DATA_FORMAT_YUV420_3P) {
 			uint32_t size = rect->w * rect->h;
 			dispc_write((uint32_t)(img_buffer + size), DISPC_IMG_UV_BASE_ADDR);
 			dispc_write((uint32_t)(img_buffer + size*5/4), DISPC_IMG_V_BASE_ADDR);
@@ -2182,7 +2189,7 @@ static int32_t sprdfb_dispc_display_overlay(struct sprdfb_device *dev, struct ov
 	dev->frame_count += 1;
 	dispc_run(dev);
 
-	if((SPRD_OVERLAY_DISPLAY_SYNC == setting->display_mode) && (SPRDFB_PANEL_IF_DPI != dev->panel_if_type)){
+	if((SPRD_DISPLAY_OVERLAY_SYNC == setting->display_mode) && (SPRDFB_PANEL_IF_DPI != dev->panel_if_type)){
 		dispc_ctx.vsync_waiter ++;
 		if (dispc_sync(dev) != 0) {/* time out??? disable ?? */
 			printk("sprdfb: sprdfb  do sprd_lcdc_display_overlay  time out!\n");

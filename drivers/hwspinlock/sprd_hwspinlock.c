@@ -121,6 +121,9 @@ static void inline sprd_hwlocks_implemented(int hwlock_id)
 	}
 }
 
+#ifdef CONFIG_SEC_DEBUG_REG_ACCESS
+extern unsigned char *sec_debug_local_hwlocks_status;
+#endif
 int sprd_record_hwlock_sts(unsigned int lock_id, unsigned int sts)
 {
 	if(lock_id >= HWSPINLOCK_ID_TOTAL_NUMS){
@@ -129,6 +132,11 @@ int sprd_record_hwlock_sts(unsigned int lock_id, unsigned int sts)
 	}
 
 	local_hwlocks_status[lock_id] = sts;
+
+#ifdef CONFIG_SEC_DEBUG_REG_ACCESS
+	if (sec_debug_local_hwlocks_status)
+		sec_debug_local_hwlocks_status[lock_id] = sts;
+#endif
 	return sts;
 }
 
@@ -230,7 +238,7 @@ static int sprd_check_hwspinlock_vid(struct hwspinlock *lock)
 		|| sprd_hwlock->hwspinlock_vid == 0x300){
 		return 1;
 	} else {
-		printk(KERN_ERR "Warning:hwlock version id is 0x%x!\n",sprd_hwlock->hwspinlock_vid);
+		pr_debug("Warning:hwlock version id is 0x%x!\n",sprd_hwlock->hwspinlock_vid);
 		return 0;
 	}
 }
@@ -308,7 +316,7 @@ static int __hwspinlock_trylock(struct hwspinlock *lock)
 		}
 	}
 
-	printk(KERN_ERR "Hwspinlock [%d] lock failed!\n",hwlock_to_id(lock));
+	pr_debug("Hwspinlock [%d] lock failed!\n",hwlock_to_id(lock));
 	return 0;
 
 __locked:

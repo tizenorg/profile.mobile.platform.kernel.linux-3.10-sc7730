@@ -401,6 +401,10 @@ config SEC_WATCHDOG_PET_TIME
 	int "sec watchdog kicking time interval value"
 	default 5
 endif
+
+config SEC_DEBUG_REG_ACCESS
+	bool "Samsung reg access debugging"
+	default n
 endif
 
 config SEC_LOG
@@ -412,7 +416,7 @@ config SEC_LOG
 	  log buffer for both bootloader and kernel. It also preserves
 	  previous content before reboot.
 
-config SEC_LOG_NONCACHED
+config SEC_LOG_BUF_NOCACHE
 	default n
 	bool "Enable non cached kernel sec_log support" if EMBEDDED
 	depends on SEC_LOG

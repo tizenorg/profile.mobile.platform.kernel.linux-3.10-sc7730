@@ -54,11 +54,6 @@
 #define J5_100_OHM_VALUE    0xECEC0001
 
 #define MAX_ERR_CNT			(100)
-#define EVENT_TIMER_INTERVAL		(HZ * timer_period_ms / 1000)
-u32 event_ms = 0, timer_ms = 0;
-static struct timer_list event_timer;
-static struct timespec t_current;	/* nano seconds */
-int timer_period_ms = 500;		/* 500 msec */
 
 extern int in_calibration(void);
 
@@ -88,6 +83,8 @@ void tsp_printk(int level, const char *fmt, ...)
 
 	va_end(args);
 }
+
+static struct timespec t_current;	/* nano seconds */
 
 long get_milli_second(void)
 {
@@ -173,7 +170,6 @@ void ist30xx_start(struct ist30xx_data *data)
 		data->scan_count = 0;
 		data->scan_retry = 0;
 		data->deep_sleep = false;
-		mod_timer(&event_timer, get_jiffies_64() + EVENT_TIMER_INTERVAL * 2);
 	}
 	/* TA mode */
 	ist30xx_write_cmd(data->client, IST30XX_HIB_CMD,
@@ -271,6 +267,7 @@ err_get_ver:
 #define CALIB_MSG_VALID		(0x80000CAB)
 #define TRACKING_INTR_VALID	(0x127EA597)
 u32 tracking_intr_value = TRACKING_INTR_VALID;
+u32 event_ms = 0, timer_ms = 0;
 int ist30xx_get_info(struct ist30xx_data *data)
 {
 	int ret;
@@ -393,13 +390,6 @@ void ist30xx_special_cmd(struct ist30xx_data *data, int cmd)
 }
 #endif
 
-#define PRESS_MSG_MASK		(0x01)
-#define MULTI_MSG_MASK		(0x02)
-#define TOUCH_DOWN_MESSAGE	("P")
-#define TOUCH_UP_MESSAGE	("R")
-#define TOUCH_MOVE_MESSAGE	("M")
-bool tsp_touched[IST30XX_MAX_MT_FINGERS] = { false, };
-
 void print_tsp_event(struct ist30xx_data *data, finger_info *finger)
 {
 	int idx = finger->bit_field.id - 1;
@@ -408,38 +398,46 @@ void print_tsp_event(struct ist30xx_data *data, finger_info *finger)
 	press = PRESSED_FINGER(data->t_status, finger->bit_field.id);
 
 	if (press) {
-		if (tsp_touched[idx] == false) {
+		if (data->tsp_touched[idx] == false) {
 			/* touch down */
 			data->touch_pressed_num++;
-			tsp_noti("%s [%d] x=%d y=%d z=%d\n",
-					TOUCH_DOWN_MESSAGE, idx,
+			data->press_finger_cnt++;
+			tsp_noti("P [%d] x=%d y=%d z=%d\n",
+					idx,
 					finger->bit_field.x,
 					finger->bit_field.y,
-					data->z_values[idx]);
-			tsp_touched[idx] = true;
+					finger->bit_field.area);
+			data->tsp_touched[idx] = true;
 		} else {
 			/* touch move */
-			tsp_debug("%s [%d] x=%d y=%d z=%d\n",
-					TOUCH_MOVE_MESSAGE, idx,
+			tsp_debug("M [%d] x=%d y=%d z=%d\n",
+					idx,
 					finger->bit_field.x,
 					finger->bit_field.y,
-					data->z_values[idx]);
+					finger->bit_field.area);
 		}
 
 		data->lx[idx] = finger->bit_field.x;
 		data->ly[idx] = finger->bit_field.y;
+		data->press_cnt[idx] ++;
 	} else {
-		if (tsp_touched[idx] == true) {
+		if (data->tsp_touched[idx] == true) {
 			/* touch up */
 			data->touch_pressed_num--;
 #ifdef CONFIG_SLEEP_MONITOR
 			data->release_cnt++;
 #endif
-			tsp_noti("%s [%d] x=%d y=%d\n", TOUCH_UP_MESSAGE,
-					finger->bit_field.id-1,
+			tsp_noti("R [%d] x=%d y=%d z=%d c=%d v=0x%04x\n",
+					idx,
 					data->lx[idx],
-					data->ly[idx]);
-			tsp_touched[idx] = false;
+					data->ly[idx],
+					finger->bit_field.area,
+					data->press_cnt[idx],
+					data->fw.cur.fw_ver);
+			data->tsp_touched[idx] = false;
+			data->press_cnt[idx] = 0;
+			if(data->press_finger_cnt > 0)
+				data->press_finger_cnt--;
 		}
 	}
 }
@@ -476,7 +474,9 @@ static void release_finger(struct ist30xx_data *data, int id)
 	ist30xx_tracking(TRACK_POS_FINGER + id);
 	tsp_info("%s() %d\n", __func__, id);
 
-	tsp_touched[id - 1] = false;
+	data->tsp_touched[id - 1] = false;
+	data->press_cnt[id - 1] = 0;
+	data->press_finger_cnt = 0;
 
 	input_sync(data->input_dev);
 }
@@ -593,17 +593,21 @@ static void report_input_data(struct ist30xx_data *data, int finger_counts,
 		input_mt_slot(data->input_dev, id);
 		input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER, press);
 
-		fingers[idx].bit_field.id = id + 1;
-		print_tsp_event(data, &fingers[idx]);
-
-		if (!press) {
-			input_report_key(data->input_dev, BTN_TOUCH, 0);
-			input_report_key(data->input_dev, BTN_TOOL_FINGER, 0);
-			continue;
-		} else if (!tsp_touched[id]) {
+		if ((press) && (!data->press_finger_cnt)) {
 			input_report_key(data->input_dev, BTN_TOUCH, 1);
 			input_report_key(data->input_dev, BTN_TOOL_FINGER, 1);
 		}
+
+		fingers[idx].bit_field.id = id + 1;
+		print_tsp_event(data, &fingers[idx]);
+
+		if ((!press) && (!data->press_finger_cnt)) {
+			input_report_key(data->input_dev, BTN_TOUCH, 0);
+			input_report_key(data->input_dev, BTN_TOOL_FINGER, 0);
+		}
+
+		if (!press)
+			continue;
 
 		input_report_abs(data->input_dev, ABS_MT_POSITION_X,
 				fingers[idx].bit_field.x);
@@ -924,10 +928,7 @@ static int ist30xx_suspend(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct ist30xx_data *data = i2c_get_clientdata(client);
 
-	del_timer(&event_timer);
-	cancel_delayed_work_sync(&data->work_noise_protect);
 	cancel_delayed_work_sync(&data->work_reset_check);
-	cancel_delayed_work_sync(&data->work_debug_algorithm);
 	mutex_lock(&ist30xx_mutex);
 	ist30xx_disable_irq(data);
 	ist30xx_internal_suspend(data);
@@ -1184,142 +1185,6 @@ static void fw_update_func(struct work_struct *work)
 #define GET_DEEP_SLEEP_STATUS(n)	((n & DEEP_SLEEP_MASK) >> 19)
 #define GET_SCAN_CNT(n)		((n & SCAN_CNT_MASK) >> 21)
 u32 ist30xx_algr_addr = 0, ist30xx_algr_size = 0;
-static void noise_work_func(struct work_struct *work)
-{
-	int ret;
-	u32 touch_status = 0;
-	u32 scan_count = 0;
-	struct delayed_work *delayed_work = to_delayed_work(work);
-	struct ist30xx_data *data = container_of(delayed_work,
-			struct ist30xx_data, work_noise_protect);
-
-	ret = ist30xx_read_reg(data->client,
-			IST30XX_HIB_TOUCH_STATUS, &touch_status);
-	if (unlikely(ret)) {
-		tsp_warn("Touch status read fail!\n");
-		goto retry_timer;
-	}
-
-	ist30xx_put_track_ms(timer_ms);
-	ist30xx_put_track(&touch_status, 1);
-
-	tsp_verb("Touch Info: 0x%08x\n", touch_status);
-
-	/* Check valid scan count */
-	if (unlikely((touch_status & TOUCH_STATUS_MASK) != TOUCH_STATUS_MAGIC)) {
-		tsp_warn("Touch status is not corrected! (0x%08x)\n", touch_status);
-		goto retry_timer;
-	}
-
-	/* Status of IC is deep sleep */
-	data->deep_sleep = GET_DEEP_SLEEP_STATUS(touch_status) ? true : false;
-
-	/* Status of IC is idle */
-	if (GET_FINGER_ENABLE(touch_status) == 0) {
-		if ((PARSE_FINGER_CNT(data->t_status) > 0) ||
-				(PARSE_KEY_CNT(data->t_status) > 0))
-			clear_input_data(data);
-	}
-
-	scan_count = GET_SCAN_CNT(touch_status);
-
-	/* Status of IC is lock-up */
-	if (unlikely(scan_count == data->scan_count)) {
-		tsp_warn("TSP IC is not responded! (0x%08x)\n", scan_count);
-		goto retry_timer;
-	}
-
-	data->scan_retry = 0;
-	data->scan_count = scan_count;
-	return;
-
-retry_timer:
-	data->scan_retry++;
-	tsp_warn("Retry touch status!(%d)\n", data->scan_retry);
-
-	if (unlikely(data->scan_retry == data->max_scan_retry)) {
-		ist30xx_scheduled_reset(data);
-		data->scan_retry = 0;
-	}
-}
-
-static void debug_work_func(struct work_struct *work)
-{
-#if IST30XX_ALGORITHM_MODE
-	int ret = -EPERM;
-	int i;
-	u32 *buf32;
-
-	struct delayed_work *delayed_work = to_delayed_work(work);
-	struct ist30xx_data *data = container_of(delayed_work,
-			struct ist30xx_data, work_debug_algorithm);
-
-	buf32 = kzalloc(ist30xx_algr_size, GFP_KERNEL);
-	if (!buf32) {
-		tsp_info("%s: Couldn't Allocate memory\n", __func__);
-				return;
-	}
-
-	for (i = 0; i < ist30xx_algr_size; i++) {
-		ret = ist30xx_read_buf(data->client,
-				ist30xx_algr_addr + IST30XX_DATA_LEN * i, &buf32[i], 1);
-		if (ret) {
-			tsp_warn("Algorithm mem addr read fail!\n");
-			return;
-		}
-	}
-
-	ist30xx_put_track(buf32, ist30xx_algr_size);
-
-	tsp_debug(" 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
-			buf32[0], buf32[1], buf32[2], buf32[3], buf32[4]);
-	kfree(buf32);
-#endif
-}
-
-void timer_handler(unsigned long timer_data)
-{
-	struct ist30xx_data *data = (struct ist30xx_data *)timer_data;
-	struct ist30xx_status *status = &data->status;
-
-	if (data->irq_working)
-		goto restart_timer;
-
-	if (status->event_mode) {
-		if (likely((status->power == 1) && (status->update != 1))) {
-			timer_ms = (u32)get_milli_second();
-			if (unlikely(status->calib == 1)) {
-				/* Check calibration */
-				if ((status->calib_msg & CALIB_MSG_MASK) == CALIB_MSG_VALID) {
-					tsp_info("Calibration check OK!!\n");
-					schedule_delayed_work(&data->work_reset_check, 0);
-					status->calib = 0;
-				} else if (timer_ms - event_ms >= 3000) {
-					/* over 3 second */
-					tsp_info("calibration timeout over 3sec\n");
-					schedule_delayed_work(&data->work_reset_check, 0);
-					status->calib = 0;
-				}
-			} else if (likely(status->noise_mode)) {
-				/* 100ms after last interrupt */
-				if (timer_ms - event_ms > 100)
-					schedule_delayed_work(&data->work_noise_protect, 0);
-			}
-
-#if IST30XX_ALGORITHM_MODE
-			if ((ist30xx_algr_addr >= IST30XX_DIRECT_ACCESS) &&
-					(ist30xx_algr_size > 0)) {
-				/* 100ms after last interrupt */
-				if (timer_ms - event_ms > 100)
-					schedule_delayed_work(&data->work_debug_algorithm, 0);
-			}
-#endif
-		}
-	}
-
-restart_timer:
-	mod_timer(&event_timer, get_jiffies_64() + EVENT_TIMER_INTERVAL);
-}
 
 static void ist30xx_request_gpio(struct i2c_client *client,
 		struct ist30xx_data *data)
@@ -1396,7 +1261,6 @@ static int ist30xx_get_sleep_monitor_cb(void* priv, unsigned int *raw_val, int c
 {
 	struct ist30xx_data *data = priv;
 	int state = DEVICE_UNKNOWN;
-	int tsp_mode;
 	int pretty = 0;
 	*raw_val = -1;
 
@@ -1833,14 +1697,6 @@ static int ist30xx_probe(struct i2c_client *client,
 	data->jig_mode = 1;
 #endif
 	INIT_DELAYED_WORK(&data->work_reset_check, reset_work_func);
-	INIT_DELAYED_WORK(&data->work_noise_protect, noise_work_func);
-	INIT_DELAYED_WORK(&data->work_debug_algorithm, debug_work_func);
-
-	init_timer(&event_timer);
-	event_timer.data = (unsigned long)data;
-	event_timer.function = timer_handler;
-	event_timer.expires = jiffies_64 + (EVENT_TIMER_INTERVAL);
-	mod_timer(&event_timer, get_jiffies_64() + EVENT_TIMER_INTERVAL * 2);
 
 	ret = ist30xx_get_info(data);
 	tsp_info("Get info: %s\n", (ret == 0 ? "success" : "fail"));
@@ -1945,10 +1801,7 @@ static void ist30xx_shutdown(struct i2c_client *client)
 	struct ist30xx_data *data = i2c_get_clientdata(client);
 
 	tsp_err("%s is called\n", __func__);
-	del_timer(&event_timer);
-	cancel_delayed_work_sync(&data->work_noise_protect);
 	cancel_delayed_work_sync(&data->work_reset_check);
-	cancel_delayed_work_sync(&data->work_debug_algorithm);
 	mutex_lock(&ist30xx_mutex);
 	ist30xx_disable_irq(data);
 	ist30xx_internal_suspend(data);

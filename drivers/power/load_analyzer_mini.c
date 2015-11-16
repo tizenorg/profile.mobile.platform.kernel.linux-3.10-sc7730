@@ -7,8 +7,11 @@
 /*
  * TIZEN kernel trace queue system
 */
-
-#define KENEL_TRACER_QUEUE_SIZE (128 * 1024)
+#if defined(CONFIG_SLP_KERNEL_ENG)
+#define KENEL_TRACER_QUEUE_SIZE (32 * 1024)
+#else
+#define KENEL_TRACER_QUEUE_SIZE (1 * 1024)
+#endif
 #define MINI_TRACER_MAX_SIZE_STRING 512
 atomic_t kenel_tracer_queue_cnt = ATOMIC_INIT(0);
 static bool kernel_mini_trace_enable;

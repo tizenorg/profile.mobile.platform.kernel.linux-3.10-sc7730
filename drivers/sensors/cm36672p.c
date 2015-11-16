@@ -874,7 +874,7 @@ static int setup_irq_cm36672p(struct cm36672p_data *data)
 
 	data->irq = gpio_to_irq(pdata->irq);
 	ret = request_threaded_irq(data->irq, NULL, proximity_irq_thread_fn,
-		IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+		IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT | IRQF_NO_SUSPEND,
 		"proximity_int", data);
 	if (ret < 0) {
 		pr_err("%s: request_irq(%d) failed for gpio %d (%d)\n",
@@ -893,21 +893,31 @@ static int setup_irq_cm36672p(struct cm36672p_data *data)
 static int proximity_regulator_onoff(struct device *dev, bool onoff)
 {
 	struct regulator *led_vdd;
-	/* struct regulator *vio;*/
+	struct regulator *vdd;
 	int ret;
 
 	pr_info("%s %s\n", __func__, (onoff) ? "on" : "off");
 
-	led_vdd = devm_regulator_get(dev, "cm36672p,vdd");
+	vdd = devm_regulator_get(dev, "cm36672p,vdd");
+	if (IS_ERR(vdd)) {
+		pr_err("%s, cannot get vdd\n", __func__);
+		return -ENOMEM;
+	}
+	regulator_set_voltage(vdd, 3000000, 3000000);
+
+	led_vdd = devm_regulator_get(dev, "cm36672p,led");
 	if (IS_ERR(led_vdd)) {
 		pr_err("%s, cannot get led_vdd\n", __func__);
 		return -ENOMEM;
-	} else if (!regulator_get_voltage(led_vdd)) {
-		regulator_set_voltage(led_vdd, 3300000, 3300000);
 	}
-
+	regulator_set_voltage(led_vdd, 3300000, 3300000);
 
 	if (onoff) {
+		ret = regulator_enable(vdd);
+		if (ret) {
+			pr_err("%s: Failed to enable vdd.\n", __func__);
+			return ret;
+		}
 		ret = regulator_enable(led_vdd);
 		if (ret) {
 			pr_err("%s: Failed to enable led_vdd.\n", __func__);
@@ -919,8 +929,14 @@ static int proximity_regulator_onoff(struct device *dev, bool onoff)
 			pr_err("%s: Failed to disable led_vdd.\n", __func__);
 			return ret;
 		}
+		ret = regulator_disable(vdd);
+		if (ret) {
+			pr_err("%s: Failed to disable vdd.\n", __func__);
+			return ret;
+		}
 	}
 
+	devm_regulator_put(vdd);
 	devm_regulator_put(led_vdd);
 	msleep(20);
 

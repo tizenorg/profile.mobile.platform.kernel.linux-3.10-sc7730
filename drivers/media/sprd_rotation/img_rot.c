@@ -302,7 +302,7 @@ int rot_k_probe(struct platform_device *pdev)
 	struct rot_k_private *rot_private;
 	struct device *dev = NULL;
 
-	printk(KERN_ALERT "rot_k_probe called\n");
+	ROTATE_TRACE(KERN_ALERT "rot_k_probe called\n");
 
 	rot_private = devm_kzalloc(&pdev->dev, sizeof(*rot_private), GFP_KERNEL);
 	if (!rot_private) {

@@ -70,7 +70,23 @@ ENTRY(sci_shark_enter_lowpower)
 	nop
 	nop
 
+2:	wfi
 	wfi
+	wfi
+	wfi
+	wfi
+	wfi
+	wfi
+	wfi
+	wfi
+	wfi
+	wfi
+	wfi
+	wfi
+	wfi
+	wfi
+	wfi
+	b 2b
 
 	nop
 	nop
@@ -79,6 +95,6 @@ ENTRY(sci_shark_enter_lowpower)
 	nop
 	nop
 	nop
-
+1:	b 1b
 	ldmfd 	sp!, {r4-r12, pc}
 ENDPROC(sci_shark_enter_lowpower)

@@ -47,9 +47,6 @@
 #define swap_hlist_for_each_entry(tpos, pos, head, member) \
 	hlist_for_each_entry(tpos, head, member)
 
-#define list_first_entry_or_null(ptr, type, member) \
-	(!list_empty(ptr) ? list_first_entry(ptr, type, member) : NULL)
-
 
 
 /*

@@ -733,7 +733,7 @@ int scale_k_isr(struct dcam_frame* dcam_frm, void* u_data)
 	}
 	if (SCALE_MODE_NORMAL == path_info_ptr->scale_mode ||
 		(SCALE_MODE_NORMAL != path_info_ptr->scale_mode && path_info_ptr->output_size.h == path_info_ptr->slice_out_height)) {
-		printk("begin to dcam_resize_end\n");
+		SCALE_TRACE("begin to dcam_resize_end\n");
 		dcam_resize_end();
 	}
 	user_isr_func(private->scale_fd);

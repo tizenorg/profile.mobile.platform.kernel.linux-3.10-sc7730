@@ -187,6 +187,7 @@ struct sec_battery_info {
 
 	int swelling_max_vbat;
 	int swelling_mode;
+	int swelling_block;
 	unsigned long swelling_block_start;
 	unsigned long swelling_block_passed;
 	int swelling_full_check_cnt;

@@ -243,13 +243,13 @@ if(fmdev->response_completion != NULL){
 			   //sub_event=0x30,p=0x0,p+1=0xae,p+2=0x0.p:after subevent
 			   pr_info("sub_event=0x%x,p=0x%x,p+1=0x%x,p+2=0x%x",sub_event,p[0],p[1],p[2]);
 
-				spin_lock_irqsave(&fmdev->resp_skb_lock, flags);
+			if(sub_event==0x30)
+			{
+			    spin_lock_irqsave(&fmdev->resp_skb_lock, flags);
 			    fmdev->response_skb = skb;
-                spin_unlock_irqrestore(&fmdev->resp_skb_lock, flags);
+                            spin_unlock_irqrestore(&fmdev->resp_skb_lock, flags);
 
-				if(sub_event==0x30)
-					{
-                    complete(&fmdev->seektask_completion);
+                            complete(&fmdev->seektask_completion);
 
                        //(&fmdev->seektask_completion)= NULL;
 

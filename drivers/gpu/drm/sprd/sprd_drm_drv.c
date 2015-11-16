@@ -52,8 +52,18 @@ static int sprd_drm_gem_one_info(int id, void *ptr, void *data)
 	struct pid *pid = gem_info_data->filp->pid;
 	struct drm_sprd_file_private *file_priv =
 			gem_info_data->filp->driver_priv;
-	struct sprd_drm_gem_obj *sprd_gem = to_sprd_gem_obj(obj);
-	struct sprd_drm_gem_buf *buf = sprd_gem->buffer;
+	struct sprd_drm_gem_obj *sprd_gem;
+	struct sprd_drm_gem_buf *buf;
+
+	if (!obj) {
+		DRM_ERROR("failed to get drm_gem_object\n");
+		return -EFAULT;
+	}
+
+	drm_gem_object_reference(obj);
+
+	sprd_gem = to_sprd_gem_obj(obj);
+	buf = sprd_gem->buffer;
 
 	seq_printf(gem_info_data->m,
 			"%5d\t%5d\t%4d\t%4d\t\t%4d\t0x%08lx\t0x%x\t%4d\t%4d\t\t"
@@ -61,7 +71,7 @@ static int sprd_drm_gem_one_info(int id, void *ptr, void *data)
 				pid_nr(pid),
 				file_priv->tgid,
 				id,
-				atomic_read(&obj->refcount.refcount),
+				atomic_read(&obj->refcount.refcount) - 1,
 				atomic_read(&obj->handle_count),
 				sprd_gem->size,
 				sprd_gem->flags,
@@ -70,6 +80,9 @@ static int sprd_drm_gem_one_info(int id, void *ptr, void *data)
 				obj->import_attach ? 1 : 0,
 				obj,
 				obj->name);
+
+	drm_gem_object_unreference(obj);
+
 	return 0;
 }
 
@@ -85,13 +98,16 @@ static int sprd_drm_gem_info(struct seq_file *m, void *data)
 			"pfnmap\texport_to_fd\timport_from_fd\tobj_addr\t"
 			"name\n");
 	mutex_lock(&drm_dev->struct_mutex);
+
 	list_for_each_entry(gem_info_data.filp, &drm_dev->filelist, lhead) {
 		spin_lock(&gem_info_data.filp->table_lock);
 		idr_for_each(&gem_info_data.filp->object_idr,
 			sprd_drm_gem_one_info, &gem_info_data);
 		spin_unlock(&gem_info_data.filp->table_lock);
 	}
+
 	mutex_unlock(&drm_dev->struct_mutex);
+
 	return 0;
 }
 

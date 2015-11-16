@@ -184,7 +184,7 @@ static const struct file_operations check_phy_addr_fops = {
 
 void debugfs_addr(struct dentry *d)
 {
-	if (!debugfs_create_file("check_phy_addr", 0644
+	if (!debugfs_create_file("check_phy_addr", 0600
 		, d, NULL,&check_phy_addr_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "check_phy_addr");
 

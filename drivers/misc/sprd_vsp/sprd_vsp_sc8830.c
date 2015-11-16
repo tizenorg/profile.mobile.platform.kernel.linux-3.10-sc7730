@@ -228,7 +228,7 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
             clk_put(vsp_hw_dev.vsp_parent_clk);
             vsp_hw_dev.vsp_parent_clk = clk_parent;
         }
-        printk(KERN_INFO "VSP_CONFIG_FREQ %d\n", vsp_hw_dev.freq_div);
+        pr_debug(KERN_INFO "VSP_CONFIG_FREQ %d\n", vsp_hw_dev.freq_div);
         break;
     case VSP_GET_FREQ:
         frequency = clk_get_rate(vsp_hw_dev.vsp_clk);
@@ -515,7 +515,7 @@ static int vsp_parse_dt(struct device *dev)
     printk(KERN_INFO "vsp: irq = 0x%x, version = 0x%0x\n", vsp_hw_dev.irq, vsp_hw_dev.version);
 
     vsp_clk_node_name = of_clk_get_parent_name(np, 1); //This position is based on related dts file
-    printk(KERN_INFO "vsp_node_name = %d\n", vsp_clk_node_name);
+    printk(KERN_INFO "vsp_node_name = %s\n", vsp_clk_node_name);
 
     vsp_clk_np = of_find_node_by_name(NULL, vsp_clk_node_name);
     if (!vsp_clk_np) {

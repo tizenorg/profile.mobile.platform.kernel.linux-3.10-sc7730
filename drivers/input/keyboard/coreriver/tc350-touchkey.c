@@ -1014,8 +1014,8 @@ static ssize_t tc300k_fw_ver_ic_show(struct device *dev,
 		goto out;
 	}
 
-	dev_info(&client->dev, "%s: %#x\n", __func__, (u8)ver);
-	ret = sprintf(buf, "%#x\n", (u8)ver);
+	dev_info(&client->dev, "%s: 0x%02x\n", __func__, (u8)ver);
+	ret = sprintf(buf, "0x%02x\n", (u8)ver);
 out:
 	return ret;
 }
@@ -1053,8 +1053,8 @@ static ssize_t tc300k_fw_ver_src_show(struct device *dev,
 	}
 
 out:
-	ret = sprintf(buf, "%#x\n", ver);
-	dev_info(&client->dev, "%s: %#x\n", __func__, ver);
+	ret = sprintf(buf, "0x%02x\n", ver);
+	dev_info(&client->dev, "%s: 0x%02x\n", __func__, ver);
 	return ret;
 }
 

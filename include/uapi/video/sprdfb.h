@@ -10,11 +10,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifndef _SPRD_FB_H_
-#define _SPRD_FB_H_
+#ifndef _UAPI_SPRD_FB_H_
+#define _UAPI_SPRD_FB_H_
 
-#define SPRD_LAYERS_IMG (0x1)   /*support YUV & RGB*/
-#define SPRD_LAYERS_OSD (0x2)   /*support RGB only*/
+#define SPRD_LAYER_IMG (0x1)   /*support YUV & RGB*/
+#define SPRD_LAYER_OSD (0x2)   /*support RGB only*/
+#define SPRD_LAYER_BOTH (0x03)	/*support RGB only*/
 
 enum {
 	SPRD_DATA_FORMAT_YUV422 = 0,
@@ -51,29 +52,51 @@ enum{
 	SPRD_FB_POWER_LIMIT
 };
 
-typedef struct overlay_setting_rect {
-	uint16_t x; //start point - x
-	uint16_t y; //start point - y
-	uint16_t w; //width
-	uint16_t h; //height
-}overlay_setting_rect;
+typedef struct overlay_size {
+	uint16_t hsize;
+	uint16_t vsize;
+} overlay_size;
 
-typedef struct overlay_setting {
+typedef struct overlay_rect {
+	uint16_t x;
+	uint16_t y;
+	uint16_t w;
+	uint16_t h;
+} overlay_rect;
+
+typedef struct overlay_endian {
+	uint16_t y;
+	uint16_t u;
+	uint16_t v;
+} overlay_endian;
+
+typedef struct overlay_info {
 	int layer_index;
 	int data_type;
-	int y_endian;
-	int uv_endian;
+	overlay_size size;
+	overlay_rect rect;
+	overlay_endian endian;
 	bool rb_switch;
-	overlay_setting_rect rect;
-	int v_endian;
-} overlay_setting;
+} overlay_info;
 
-typedef struct overlay_display_setting {
+#if defined (CONFIG_SPRDFB_USE_GEM_INDEX)
+typedef struct overlay_handle {
+	int handle;
+	int index;
+} overlay_handle;
+#endif
+
+typedef struct overlay_display {
 	int layer_index;
+#ifdef CONFIG_SPRDFB_USE_GEM_INDEX
+	struct overlay_handle osd_handle;
+	struct overlay_handle img_handle;
+#else
 	int osd_handle;
 	int img_handle;
+#endif
 	int display_mode;
-} overlay_display_setting;
+} overlay_display;
 
 /*
 int sprdfb_IOinit(void);

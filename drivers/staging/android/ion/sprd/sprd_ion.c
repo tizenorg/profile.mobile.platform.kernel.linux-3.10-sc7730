@@ -35,14 +35,14 @@ static unsigned long user_va2pa(struct mm_struct *mm, unsigned long addr)
 {
 	pgd_t *pgd = pgd_offset(mm, addr);
 	unsigned long pa = 0;
-	
+
 	if (!pgd_none(*pgd)) {
 		pud_t *pud = pud_offset(pgd, addr);
 		if (!pud_none(*pud)) {
 			pmd_t *pmd = pmd_offset(pud, addr);
 			if (!pmd_none(*pmd)) {
 				pte_t *ptep, pte;
-				
+
 				ptep = pte_offset_map(pmd, addr);
 				pte = *ptep;
 				if (pte_present(pte))
@@ -51,7 +51,7 @@ static unsigned long user_va2pa(struct mm_struct *mm, unsigned long addr)
 			}
 		}
 	}
-	
+
 	return pa;
 }
 
@@ -1065,7 +1065,7 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 			sprd_iova_free(IOMMU_MM, data.iova_addr, data.iova_size);
 			return -EFAULT;
 		}
-		pr_info("%s:cmd[%d][0x%lx %d]\n", __func__, cmd, data.iova_addr, data.iova_size);
+		pr_debug("%s:cmd[%d][0x%lx %d]\n", __func__, cmd, data.iova_addr, data.iova_size);
 		break;
 	}
 	case ION_SPRD_CUSTOM_MM_UNMAP:
@@ -1080,7 +1080,7 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 			return -EFAULT;
 		}
 
-		pr_info("%s:cmd[%d][0x%lx %d]\n", __func__, cmd, data.iova_addr, data.iova_size);
+		pr_debug("%s:cmd[%d][0x%lx %d]\n", __func__, cmd, data.iova_addr, data.iova_size);
 
 		handle = ion_import_dma_buf(client, data.fd_buffer);
 
@@ -1122,24 +1122,24 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 	{
 		int ret = -1;
 		struct ion_fence_data data;
-		
+
 		if (copy_from_user(&data, (void __user *)arg, sizeof(data))) {
 			pr_err("FENCE_CREATE user data is err\n");
 			return -EFAULT;
 		}
-		
+
 		ret = sprd_fence_build(&data);
 		if (ret != 0) {
 			pr_err("sprd_fence_build failed\n");
 			return -EFAULT;
 		}
-		
+
 		if (copy_to_user((void __user *)arg, &data, sizeof(data))) {
 			sprd_fence_destroy(&data);
 			pr_err("copy_to_user fence failed\n");
 			return -EFAULT;
 		}
-		
+
 		break;
     }
 	case ION_SPRD_CUSTOM_FENCE_SIGNAL:
@@ -1152,13 +1152,13 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 		}
 
 		sprd_fence_signal(&data);
-		
+
 		break;
 	}
 	case ION_SPRD_CUSTOM_FENCE_DUP:
 	{
 		break;
-		
+
 	}
 	default:
 		pr_err("sprd_ion Do not support cmd: %d\n", cmd);
@@ -1390,7 +1390,7 @@ int sprd_ion_remove(struct platform_device *pdev)
 	for (i = 0; i < num_heaps; i++)
 		__ion_heap_destroy(heaps[i]);
 	kfree(heaps);
-	
+
 	close_sprd_sync_timeline();
 
 	return 0;

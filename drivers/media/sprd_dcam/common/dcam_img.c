@@ -669,7 +669,7 @@ LOCAL int sprd_img_check_path0_cap(uint32_t fourcc,
 
 	path->frm_type = f->channel_id;
 	path->is_work = 0;
-	printk("zcf sprd_img_check_path0_cap  rot_mode:%d\n",path->rot_mode);
+	DCAM_TRACE("zcf sprd_img_check_path0_cap  rot_mode:%d\n",path->rot_mode);
 
 	switch (fourcc) {
 	case IMG_PIX_FMT_GREY:
@@ -695,7 +695,7 @@ LOCAL int sprd_img_check_path0_cap(uint32_t fourcc,
 		} else {
 			path->end_sel.uv_endian = DCAM_ENDIAN_HALFBIG;
 		}
-		printk("SPRD_IMG: path->end_sel.uv_endian=%d \n", path->end_sel.uv_endian);
+		DCAM_TRACE("SPRD_IMG: path->end_sel.uv_endian=%d \n", path->end_sel.uv_endian);
 		break;
 
 	default:
@@ -976,7 +976,7 @@ LOCAL int sprd_img_check_path2_cap(uint32_t fourcc,
 	path->end_sel.uv_endian = DCAM_ENDIAN_LITTLE;
 	path->is_work = 0;
 	path->pixel_depth = 0;
-	printk("zcf sprd_img_check_path2_cap rot:%d\n",path->rot_mode);
+	DCAM_TRACE("zcf sprd_img_check_path2_cap rot:%d\n",path->rot_mode);
 	if (info->img_deci.x_factor) {
 		tempw = path->in_rect.w >> 1;
 		path->in_size.w = path->in_size.w >> 1;
@@ -1642,7 +1642,7 @@ LOCAL int sprd_img_local_clear_path_buffer(struct dcam_dev *dev, int path_id)
 	path->frm_cnt_act = 0;
 	sprd_img_buf_queue_init(&path->buf_queue);
 
-	printk("SPRD_IMG: clear path buffer, frm_cnt_act %d \n", path->frm_cnt_act);
+	DCAM_TRACE("SPRD_IMG: clear path buffer, frm_cnt_act %d \n", path->frm_cnt_act);
 
 	return 0;
 }
@@ -1651,7 +1651,7 @@ LOCAL int sprd_img_local_deinit(struct dcam_dev *dev)
 {
 	int                                     ret = 0;
 	struct dcam_path_spec    *path = &dev->dcam_cxt.dcam_path[DCAM_PATH1];
-	printk("SPRD_IMG: sprd_img_local_deinit, frm_cnt_act %d \n", path->frm_cnt_act);
+	DCAM_TRACE("SPRD_IMG: sprd_img_local_deinit, frm_cnt_act %d \n", path->frm_cnt_act);
 	if (unlikely(NULL == dev || NULL == path)) {
 		return -EINVAL;
 	}
@@ -1792,7 +1792,7 @@ LOCAL int sprd_img_buf_queue_init(struct dcam_img_buf_queue *queue)
 	if (NULL == queue)
 		return -EINVAL;
 
-	printk("SPRD_IMG: sprd_img_buf_queue_init \n");
+	DCAM_TRACE("SPRD_IMG: sprd_img_buf_queue_init \n");
 	memset(queue, 0, sizeof(*queue));
 	queue->write = &queue->buf_addr[0];
 	queue->read  = &queue->buf_addr[0];
@@ -2037,7 +2037,7 @@ int sprd_img_create_zoom_thread(void* param)
 		DCAM_TRACE("create_zoom_thread, dev is NULL \n");
 		return -1;
 	}
-	printk("SPRD_IMG: create_zoom_thread E!\n");
+	DCAM_TRACE("SPRD_IMG: create_zoom_thread E!\n");
 
 	dev->is_zoom_thread_stop = 0;
 	dev->zoom_level = DCAM_ZOOM_LEVEL_MAX + 1;
@@ -2487,7 +2487,7 @@ exit:
 #endif
 	}
 
-	DCAM_TRACE("sprd_img_k_open %d \n", ret);
+	printk("sprd_img_k_open %d \n", ret);
 	return ret;
 }
 
@@ -3333,7 +3333,7 @@ exit:
 	return ret;
 }
 
-LOCAL int sprd_img_check_frame_timestamp(struct dcam_frame *frame, struct dcam_dev* param, struct timeval *tv)
+LOCAL int sprd_img_check_frame_timestamp(struct dcam_dev* param, struct timeval *tv)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
 	struct dcam_dev          *dev = (struct dcam_dev*)param;
@@ -3466,11 +3466,13 @@ ssize_t sprd_img_read(struct file *file, char __user *u_data, size_t cnt, loff_t
 				read_op.parm.frame.real_index,
 				read_op.parm.frame.frm_base_id,
 				fmr_index);
-			DCAM_TRACE("SPRD_IMG: read, %d %d %d \n", node.index, path->frm_id_base, node.index-path->frm_id_base);
-			if (sprd_img_check_frame_timestamp(path->frm_ptr[node.index-path->frm_id_base], dev, &time)) {
-				read_op.evt = IMG_CANCELED_BUF;
-				ret = DCAM_RTN_SUCCESS;
-				goto read_end;
+			if (path != NULL) {
+				DCAM_TRACE("SPRD_IMG: read, %d %d %d \n", node.index, path->frm_id_base, node.index-path->frm_id_base);
+				if (sprd_img_check_frame_timestamp(dev, &time)) {
+					read_op.evt = IMG_CANCELED_BUF;
+					ret = DCAM_RTN_SUCCESS;
+					goto read_end;
+				}
 			}
 		} else {
 			if (IMG_TIMEOUT == read_op.evt ||
@@ -3745,7 +3747,7 @@ int sprd_img_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 
-	printk(KERN_ALERT "sprd_img_probe called\n");
+	DCAM_TRACE(KERN_ALERT "sprd_img_probe called\n");
 
 	ret = misc_register(&image_dev);
 	if (ret) {

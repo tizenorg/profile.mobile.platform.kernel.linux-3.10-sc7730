@@ -278,7 +278,7 @@ int sensor_k_set_pd_level(uint32_t *fd_handle, uint8_t power_level)
 
 #ifndef	CONFIG_SC_FPGA_PIN
 	get_gpio_id(p_mod->of_node, &fd->gpio_tab.pwn, &fd->gpio_tab.reset, fd->sensor_id);
-	SENSOR_PRINT_HIGH("SENSOR: pwn=%d level=%d \n", fd->gpio_tab.pwn, power_level);
+	SENSOR_PRINT("SENSOR: pwn=%d level=%d \n", fd->gpio_tab.pwn, power_level);
 	if (0 == power_level) {
 		gpio_direction_output(fd->gpio_tab.pwn, 0);
 	} else {
@@ -321,7 +321,7 @@ LOCAL int _sensor_regulator_enable(struct sensor_file_tag *fd_handle, uint32_t *
 	err = regulator_enable(ptr_cam_regulator);
 	(*power_on_count)++;
 
-	SENSOR_PRINT_HIGH("sensor pwr on done: cnt=0x%x, io=%x, av=%x, dv=%x, mo=%x \n", *power_on_count,
+	SENSOR_PRINT("sensor pwr on done: cnt=0x%x, io=%x, av=%x, dv=%x, mo=%x \n", *power_on_count,
 		fd_handle->iopower_on_count,
 		fd_handle->avddpower_on_count,
 		fd_handle->dvddpower_on_count,
@@ -462,7 +462,7 @@ LOCAL int _sensor_k_set_voltage(struct sensor_file_tag *fd_handle, uint32_t val,
 		SENSOR_PRINT("SENSOR:dis regu.\n");
 	}
 
-	SENSOR_PRINT_HIGH("SENSOR:set vol %d %s %d!.\n", volt_value, regu_name, type);
+	SENSOR_PRINT("SENSOR:set vol %d %s %d!.\n", volt_value, regu_name, type);
 
 	return ret;
 #endif
@@ -493,7 +493,7 @@ int sensor_k_set_voltage_dvdd(uint32_t *fd_handle, uint32_t dvdd_val)
 
 	get_gpio_id_ex(p_mod->of_node, GPIO_CAMDVDD, &gpio_id, fd->sensor_id);
 	if ((SENSOR_DEV_0 == fd->sensor_id) && (0 != gpio_id)) {
-		SENSOR_PRINT_HIGH("sensor set DVDD gpio=%d, level=%d\n", gpio_id, dvdd_val);
+		SENSOR_PRINT("sensor set DVDD gpio=%d, level=%d\n", gpio_id, dvdd_val);
 		if (SENSOR_VDD_CLOSED == dvdd_val) {
 			gpio_direction_output(gpio_id, 1);
 			gpio_set_value(gpio_id, 0);
@@ -505,7 +505,7 @@ int sensor_k_set_voltage_dvdd(uint32_t *fd_handle, uint32_t dvdd_val)
 	}
 
 	if ((SENSOR_DEV_1 == fd->sensor_id) && (0 != gpio_id)) {
-		SENSOR_PRINT_HIGH("sensor set DVDD gpio %d\n", gpio_id);
+		SENSOR_PRINT("sensor set DVDD gpio %d\n", gpio_id);
 		if (SENSOR_VDD_CLOSED == dvdd_val) {
 			gpio_direction_output(gpio_id, 1);
 			gpio_set_value(gpio_id, 0);
@@ -535,7 +535,7 @@ int sensor_k_set_voltage_iovdd(uint32_t *fd_handle, uint32_t iodd_val)
 
 	get_gpio_id_ex(p_mod->of_node, GPIO_CAMIOVDD, &gpio_id, fd->sensor_id);
 	if (SENSOR_DEV_0 == fd->sensor_id && 0 != gpio_id) {
-		SENSOR_PRINT_HIGH("sensor set IOVDD gpio %d\n", gpio_id);
+		SENSOR_PRINT("sensor set IOVDD gpio %d\n", gpio_id);
 		if (SENSOR_VDD_CLOSED == iodd_val) {
 			gpio_direction_output(gpio_id, 1);
 			gpio_set_value(gpio_id, 0);
@@ -547,7 +547,7 @@ int sensor_k_set_voltage_iovdd(uint32_t *fd_handle, uint32_t iodd_val)
 	}
 
 	if (SENSOR_DEV_1 == fd->sensor_id && 0 != gpio_id) {
-		SENSOR_PRINT_HIGH("sensor set IOVDD gpio %d\n", gpio_id);
+		SENSOR_PRINT("sensor set IOVDD gpio %d\n", gpio_id);
 		if (SENSOR_VDD_CLOSED == iodd_val) {
 			gpio_direction_output(gpio_id, 1);
 			gpio_set_value(gpio_id, 0);
@@ -661,7 +661,7 @@ LOCAL int _sensor_k_set_mclk(struct sensor_file_tag *fd_handle, struct device_no
 	uint8_t                   clk_div;
 	SENSOR_CHECK_ZERO(fd_handle);
 
-	SENSOR_PRINT_HIGH("SENSOR: set mclk org = %d, clk = %d\n",
+	SENSOR_PRINT("SENSOR: set mclk org = %d, clk = %d\n",
 				fd_handle->sensor_mclk, mclk);
 
 	if ((0 != mclk) && (fd_handle->sensor_mclk != mclk)) {
@@ -755,7 +755,7 @@ LOCAL int _sensor_k_set_mclk(struct sensor_file_tag *fd_handle, struct device_no
 	} else {
 		SENSOR_PRINT("SENSOR: Do nothing !! ");
 	}
-	SENSOR_PRINT_HIGH("SENSOR: set mclk X\n");
+	SENSOR_PRINT("SENSOR: set mclk X\n");
 	return 0;
 #endif
 }
@@ -806,7 +806,7 @@ int sensor_k_sensor_sel(uint32_t *fd_handle, uint32_t sensor_id)
 	SENSOR_CHECK_ZERO(fd);
 	fd->sensor_id = sensor_id;
 
-	SENSOR_PRINT_HIGH("sensor id = %d\n", sensor_id);
+	SENSOR_PRINT("sensor id = %d\n", sensor_id);
 
 	return SENSOR_K_SUCCESS;
 }
@@ -831,7 +831,7 @@ int sensor_k_set_rst_level(uint32_t *fd_handle, uint32_t plus_level)
 	SENSOR_CHECK_ZERO(p_mod);
 
 	get_gpio_id(p_mod->of_node, &fd->gpio_tab.pwn, &fd->gpio_tab.reset, fd->sensor_id);
-	SENSOR_PRINT_HIGH("SENSOR: set rst lvl: lvl %d, rst pin %d \n", plus_level, fd->gpio_tab.reset);
+	SENSOR_PRINT("SENSOR: set rst lvl: lvl %d, rst pin %d \n", plus_level, fd->gpio_tab.reset);
 
 #ifndef CONFIG_SC_FPGA_PIN
 	gpio_direction_output(fd->gpio_tab.reset, plus_level);
@@ -1034,7 +1034,7 @@ LOCAL int _sensor_k_wr_regtab(struct sensor_file_tag *fd_handle, struct sensor_r
 		goto _Sensor_K_WriteRegTab_return;
 	}
 
-	SENSOR_PRINT_HIGH("_sensor_k_wr_regtab start: mode=%d, cnt=%d\n", pRegTab->burst_mode, cnt);
+	SENSOR_PRINT("_sensor_k_wr_regtab start: mode=%d, cnt=%d\n", pRegTab->burst_mode, cnt);
 
 	sensor_reg_ptr = (struct sensor_reg_tag *)pBuff;
 
@@ -1077,13 +1077,13 @@ LOCAL int _sensor_k_set_i2c_clk(struct sensor_file_tag *fd_handle, uint32_t cloc
 	if (NULL != p_mod->sensor_dev_tab[fd_handle->sensor_id].cur_i2c_client) {
 		i2c_client = p_mod->sensor_dev_tab[fd_handle->sensor_id].cur_i2c_client;
 		sprd_i2c_ctl_chg_clk(i2c_client->adapter->nr, clock);
-		printk("sensor set i2c id %d clk %d  \n", i2c_client->adapter->nr, clock);
+		SENSOR_PRINT("sensor set i2c id %d clk %d  \n", i2c_client->adapter->nr, clock);
 	}
 	if (NULL != p_mod->sensor_dev_tab[fd_handle->sensor_id].vcm_i2c_client
 		&& 0 == p_mod->sensor_dev_tab[fd_handle->sensor_id].vcm_gpio_i2c_flag) {
 		i2c_client = p_mod->sensor_dev_tab[fd_handle->sensor_id].vcm_i2c_client;
 		sprd_i2c_ctl_chg_clk(i2c_client->adapter->nr, clock);
-		printk("sensor set i2c id %d clk %d  \n", i2c_client->adapter->nr, clock);
+		SENSOR_PRINT("sensor set i2c id %d clk %d  \n", i2c_client->adapter->nr, clock);
 	}
 	SENSOR_PRINT("sensor set i2c clk %d  \n", clock);
 
@@ -1281,9 +1281,9 @@ int _sensor_k_close_mipi(struct file *file)
 			csi_api_close(handle, p_file->phy_id);
 			_sensor_k_mipi_clk_dis(p_file);
 			p_file->mipi_on = 0;
-			printk("MIPI off \n");
+			SENSOR_PRINT("MIPI off \n");
 		} else {
-			printk("MIPI already off \n");
+			SENSOR_PRINT("MIPI already off \n");
 		}
 
 	}
@@ -1847,9 +1847,9 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 							p_file->mipi_on = 1;
 							p_file->phy_id = if_cfg.phy_id;
 							p_file->if_type = INTERFACE_MIPI;
-							printk("MIPI on, lane %d, bps_per_lane %d, wait 10us \n", if_cfg.lane_num, if_cfg.bps_per_lane);
+							SENSOR_PRINT("MIPI on, lane %d, bps_per_lane %d, wait 10us \n", if_cfg.lane_num, if_cfg.bps_per_lane);
 						} else {
-							printk("MIPI already on \n");
+							SENSOR_PRINT("MIPI already on \n");
 						}
 					}
 				} else {
@@ -1858,9 +1858,9 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 							csi_api_close(csi_handle, if_cfg.phy_id);
 							_sensor_k_mipi_clk_dis(p_file);
 							p_file->mipi_on = 0;
-							printk("MIPI off \n");
+							SENSOR_PRINT("MIPI off \n");
 						} else {
-							printk("MIPI already off \n");
+							SENSOR_PRINT("MIPI already off \n");
 						}
 
 					}
@@ -1891,7 +1891,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			SENSOR_OTP_PARAM_T *para = (SENSOR_OTP_PARAM_T *)arg;
 			uint32_t type;
 			copy_from_user(&type, &para->type, sizeof(uint32_t));
-			printk("SENSOR: ioctl SENSOR_IO_READ_OTPDATA %p type %d\n", arg, para->type);
+			SENSOR_PRINT("SENSOR: ioctl SENSOR_IO_READ_OTPDATA %p type %d\n", arg, para->type);
 
 			if(type == SENSOR_OTP_PARAM_CHECKSUM) {
 				SENSOR_OTP_DATA_INFO_T *chksum = &p_mod->otp_param[p_file->sensor_id].golden;
@@ -1956,7 +1956,7 @@ LOCAL int sensor_k_register_subdevs(struct platform_device *pdev)
 
 	SENSOR_CHECK_ZERO(p_mod);
 
-	printk("sensor register sub device E\n");
+	SENSOR_PRINT("sensor register sub device E\n");
 	for_each_compatible_node(adapter, NULL, "sprd,i2c") {
 		if (!of_find_device_by_node(adapter)) {
 			of_node_put(adapter);
@@ -2036,7 +2036,7 @@ int sensor_k_probe(struct platform_device *pdev)
 #endif
 	int                          gpio_id = 0;
 
-	printk(KERN_ALERT "sensor probe called\n");
+	SENSOR_PRINT(KERN_ALERT "sensor probe called\n");
 	p_mod = (struct sensor_module_tab_tag *)vzalloc(sizeof(struct sensor_module_tab_tag));
 	SENSOR_CHECK_ZERO(p_mod);
 
@@ -2083,7 +2083,7 @@ int sensor_k_probe(struct platform_device *pdev)
 		printk("sensor: gpio already request GPIO_CAMDVDD %d.\n", gpio_id);
 	}
 	gpio_direction_output(gpio_id, 0);
-	printk("sensor: GPIO_CAMDVDD: %d \n", gpio_id);
+	SENSOR_PRINT("sensor: GPIO_CAMDVDD: %d \n", gpio_id);
 
 	get_gpio_id_ex(p_mod->of_node, GPIO_CAMIOVDD, &gpio_id, 0);
 	ret = gpio_request(gpio_id, NULL);
@@ -2092,7 +2092,7 @@ int sensor_k_probe(struct platform_device *pdev)
 		printk("sensor: gpio already request GPIO_CAMDVDD %d.\n", gpio_id);
 	}
 	gpio_direction_output(gpio_id, 0);
-	printk("sensor: GPIO_CAMIOVDD: %d \n", gpio_id);
+	SENSOR_PRINT("sensor: GPIO_CAMIOVDD: %d \n", gpio_id);
 
 	get_gpio_id_ex(p_mod->of_node, GPIO_CAMDVDD, &gpio_id, 1);
 	ret = gpio_request(gpio_id, NULL);
@@ -2101,7 +2101,7 @@ int sensor_k_probe(struct platform_device *pdev)
 		printk("sensor: gpio already request GPIO_CAMDVDD %d.\n", gpio_id);
 	}
 	gpio_direction_output(gpio_id, 0);
-	printk("sensor: GPIO_CAMDVDD: %d \n", gpio_id);
+	SENSOR_PRINT("sensor: GPIO_CAMDVDD: %d \n", gpio_id);
 #endif
 
 #if defined(CONFIG_MACH_GRANDPRIME3G_VE) || defined(CONFIG_MACH_Z3) // || defined(CONFIG_MACH_COREPRIMEVE3G)

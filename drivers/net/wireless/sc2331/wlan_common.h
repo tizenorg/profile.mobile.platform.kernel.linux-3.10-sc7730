@@ -210,6 +210,7 @@ typedef struct {
 	unsigned char *scan_frame_array;
 	int p2p_mode;
 	register_frame_param_t register_frame;
+	int hidden_ssid_scan;
 } wlan_cfg80211_t;
 
 /* Best not to use the work to send deauth cmd

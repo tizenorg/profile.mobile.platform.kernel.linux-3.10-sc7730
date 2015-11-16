@@ -29,21 +29,29 @@
 		linux,initrd-end   = <0x855a3212>;
 	};
 
-	samsung_input_bridge{
+	samsung_input_bridge {
 		compatible = "samsung_input_bridge";
-		input_bridge,num_map = <2>;
+		input_bridge,num_map = <3>;
 		input_bridge,map_codes ="input_bridge,logdump_map_code",
-					"input_bridge,safemode_map_code";
+					"input_bridge,safemode_map_code",
+					"input_bridge,hall_log_map_code";
+		input_bridge,map_types ="input_bridge,logdump_map_type",
+					"input_bridge,safemode_map_type",
+					"input_bridge,hall_log_map_type";
 		input_bridge,logdump_map_code  = <115 114 115 114 116 114 115 116>;
+		input_bridge,logdump_map_type  = <1 1 1 1 1 1 1 1>;
 		input_bridge,safemode_map_code  = <114>;
-		input_bridge,env_str = "APPS_LOG", "SAFE_MODE";
-		input_bridge,env_value = "ON", "ON";
+		input_bridge,safemode_map_type  = <1>;
+		input_bridge,hall_log_map_code = <116 8 8 8 8 8 8 8 8>;
+		input_bridge,hall_log_map_type = <1 2 2 2 2 2 2 2 2>;
+		input_bridge,env_str = "APPS_LOG", "SAFE_MODE", "APPS_LOG";
+		input_bridge,env_value = "ON", "ON", "ON";
 		input_bridge,map_key = <1>;
 		input_bridge,enable_uevent = <1>;
 		input_bridge,uevent_action = <2>;
-		input_bridge,num_dev = <2>;
+		input_bridge,dev_num = <2>;
 		input_bridge,dev_name_str = "sci-keypad", "sprd-eic-keys";
-		};
+	};
 
 	aliases {
 		i2c4 = &i2c4;
@@ -95,7 +103,7 @@
 					compatible = "sm,sm5701-charger";
 					chgen-gpio = <&d_gpio_gpio 215 0>;
 					chgirq-gpio = <&d_gpio_gpio 161 0>;
-					chg-float-voltage = <4350>;
+					chg-float-voltage = <4340>;
 				};
 			};
 
@@ -178,7 +186,7 @@
 		alm_soc = <5>; /* SOC alm level %*/
 		alm_vbat = <3450>; /* Vbat alm level mV*/
 		rint = <200>; /*battery internal impedance*/
-		cnom = <2600>; /* nominal capacity in mAh */
+		cnom = <2577>; /* nominal capacity in mAh */
 		rsense_real = <203>; /* sense resistor 0.1mOhm from real environment*/
 		rsense_spec = <200>; /* sense resistor 0.1mOhm from specification*/
 		relax_current = <50>; /* current for relaxation in mA (< C/20) */
@@ -188,26 +196,26 @@
                 rint_temp_tab = <1025 200
                                 1010 500
                                 1000 900>;
-		ocv_table = <4320 100
-				4248 95
-				4191 90
-				4138 85
-				4086 80
-				4042 75
-				3987 70
-				3956 65
-				3917 60
-				3866 55
-				3832 50
-				3810 45
-				3794 40
-				3781 35
-				3775 30
-				3767 25
-				3743 20
-				3699 15
-				3688 10
-				3590 5
+		ocv_table = <4290 100
+				4237 95
+				4182 90
+				4130 85
+				4081 80
+				4034 75
+				3988 70
+				3955 65
+				3918 60
+				3868 55
+				3835 50
+				3813 45
+				3796 40
+				3783 35
+				3776 30
+				3770 25
+				3752 20
+				3715 15
+				3690 10
+				3676 5
 				3400 0>;
 		sprd_fgu: sprd_fgu{
 			compatible  = "sprd,sprd_fgu";
@@ -265,7 +273,7 @@
 		battery,temp_low_threshold_lpm = <(-50)>;
 		battery,temp_low_recovery_lpm = <0>;
 		battery,full_check_type = <7>; /* SEC_BATTERY_FULLCHARGED_CHGPSY */
-		battery,full_check_type_2nd = <3>; /* SEC_BATTERY_FULLCHARGED_TIME */
+		battery,full_check_type_2nd = <2>; /* SEC_BATTERY_FULLCHARGED_FG_CURRENT */
 		battery,full_check_count = <1>;
 		battery,chg_gpio_full_check = <0>;
 		battery,chg_polarity_full_check = <1>;
@@ -277,7 +285,7 @@
 		battery,recharge_check_count = <1>;
 		battery,recharge_condition_type = <4>; /* SEC_BATTERY_RECHARGE_CONDITION_VCELL */
 		battery,recharge_condition_soc = <98>;
-		battery,recharge_condition_vcell = <4300>;
+		battery,recharge_condition_vcell = <4287>;
 
 		battery,charging_total_time = <21600>;
 		battery,recharging_total_time = <5400>;
@@ -285,11 +293,11 @@
 
 		/* Charger */
 		charger,vbus_ctrl_gpio = <&d_gpio_gpio 64 0x00>;
-		charger,chg_float_voltage = <4350>;
+		charger,chg_float_voltage = <4340>;
 		battery,input_current_limit = <1000 460 460 1000 460 1000 1000 460 460 1000 460 1000 1000 460 1000 300 1000 1000 300 1000 1000 460 460>;
 		battery,fast_charging_current = <1550 975 975 1550 975 1550 1550 975 0 1550 975 1550 1550 (-1) 1550 300 1550 1550 300 1550 1550 0 0>;
 		battery,full_check_current_1st = <200 0 200 200 200 200 200 200 0 200 200 200 200 0 200 200 200 200 200 200 200 0 0>;
-		battery,full_check_current_2nd = <2400 0 2400 2400 2400 2400 2400 2400 0 2400 2400 2400 2400 0 2400 2400 2400 2400 2400 2400 2400 0 0>;
+		battery,full_check_current_2nd = <100 0 100 100 100 100 100 100 0 100 100 100 100 0 100 100 100 100 100 100 100 0 0>;
 	};
 
 	panel_cabc_bl {
@@ -380,21 +388,6 @@
 &i2c2 {
 	#size-cells = <0>;
 	status = "okay";
-	ims1911@44{
-		compatible = "ims1911";
-		reg = <0x44>;
-		interrupt-parent = <&d_gpio_gpio>;
-		interrupts = <216 0>;
-		ims1911,irq-gpio = <&d_gpio_gpio 216 0x00>;
-		ims1911,ps_setting = <0x42>;
-		ims1911,led_drive_current = <0x90>;
-		ims1911,led_drive_pulse = <49>;
-		ims1911,ps_int_low_threshold = <45>;
-		ims1911,ps_int_high_threshold = <75>;
-
-		ims1911-led-supply = <&vdd28>;
-		ims1911-vdd-supply = <&vddkpled>;
-	};
 
 	cm36672p@60{
 		compatible = "cm36672p";

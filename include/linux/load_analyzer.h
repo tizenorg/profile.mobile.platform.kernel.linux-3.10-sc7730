@@ -6,8 +6,13 @@
 
 
 /*** FUNCTION OPTION ***/
+#if defined(CONFIG_SLP_KERNEL_ENG)
 #define CPU_LOAD_HISTORY_NUM	2000
 #define CPU_TASK_HISTORY_NUM 	30000
+#else
+#define CPU_LOAD_HISTORY_NUM	300
+#define CPU_TASK_HISTORY_NUM 	30
+#endif
 
 
 #define CONFIG_SLP_CHECK_BUS_LOAD	1
@@ -22,11 +27,16 @@
 
 /*******************************************************/
 #define CONFIG_CHECK_WORK_HISTORY	1
+#if defined(CONFIG_SLP_KERNEL_ENG)
 #define CPU_WORK_HISTORY_NUM	1000
+#else
+#define CPU_WORK_HISTORY_NUM	30
+#endif
 /********************************************************/
 
-
+#if defined(CONFIG_SLP_KERNEL_ENG)
 #define CONFIG_SLP_CURRENT_MONITOR	1
+#endif
 #define CONFIG_SLP_CHECK_PHY_ADDR	1
 //#define CONFIG_CHECK_NOT_CPUIDLE_CAUSE	1
 //#define CONFIG_CHECK_ENTER_AFTR		1
@@ -323,7 +333,11 @@ bool cpu_work_history_onoff;
 
 /******** +CONFIG_SLP_INPUT_REC+  ********/
 #if defined (CONFIG_SLP_INPUT_REC)
+#if defined(CONFIG_SLP_KERNEL_ENG)
 #define INPUT_REC_HISTORY_NUM 	20000
+#else
+#define INPUT_REC_HISTORY_NUM 	20
+#endif
 #define MAX_INPUT_DEVICES	256
 
 struct input_rec_history_tag {

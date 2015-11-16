@@ -468,15 +468,15 @@ static void jpg_parse_dt(
 
 static int jpg_nocache_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-    printk(KERN_INFO "@jpg[%s]\n", __FUNCTION__);
+    /* printk(KERN_INFO "@jpg[%s]\n", __FUNCTION__); */
     vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
     vma->vm_pgoff     = (sprd_jpg_phys>>PAGE_SHIFT);
     if (remap_pfn_range(vma,vma->vm_start, vma->vm_pgoff,
                         vma->vm_end - vma->vm_start, vma->vm_page_prot))
         return -EAGAIN;
-    printk(KERN_INFO "@jpg mmap %x,%x,%x\n", (unsigned int)PAGE_SHIFT,
+    /* printk(KERN_INFO "@jpg mmap %x,%x,%x\n", (unsigned int)PAGE_SHIFT,
            (unsigned int)vma->vm_start,
-           (unsigned int)(vma->vm_end - vma->vm_start));
+           (unsigned int)(vma->vm_end - vma->vm_start)); */
     return 0;
 }
 
@@ -566,9 +566,9 @@ by clk_get()!\n", "clk_jpg", name_parent);
         goto errout2;
     }
 
-    printk("jpg parent clock name %s\n", name_parent);
-    printk("jpg_freq %d Hz",
-           (int)clk_get_rate(jpg_hw_dev.jpg_clk));
+    /* printk("jpg parent clock name %s\n", name_parent); */
+    /* printk("jpg_freq %d Hz",
+           (int)clk_get_rate(jpg_hw_dev.jpg_clk)); */
 
 #if defined(CONFIG_SPRD_IOMMU)
     {

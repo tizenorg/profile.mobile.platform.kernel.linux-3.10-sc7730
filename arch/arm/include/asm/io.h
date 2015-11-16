@@ -27,7 +27,7 @@
 #include <asm/byteorder.h>
 #include <asm/memory.h>
 #include <asm-generic/pci_iomap.h>
-#ifdef CONFIG_SPRD_DEBUG
+#if defined(CONFIG_SPRD_DEBUG) || defined(CONFIG_SEC_DEBUG_REG_ACCESS)
 #include <linux/regs_debug.h>
 #endif
 /*
@@ -49,7 +49,7 @@ extern void __raw_readsb(const void __iomem *addr, void *data, int bytelen);
 extern void __raw_readsw(const void __iomem *addr, void *data, int wordlen);
 extern void __raw_readsl(const void __iomem *addr, void *data, int longlen);
 
-#ifndef CONFIG_SPRD_DEBUG
+#if !(defined(CONFIG_SPRD_DEBUG) || defined(CONFIG_SEC_DEBUG_REG_ACCESS))
 #if __LINUX_ARM_ARCH__ < 6
 /*
  * Half-word accesses are problematic with RiscPC due to limitations of
@@ -114,12 +114,14 @@ static inline u32 __raw_readl(const volatile void __iomem *addr)
 }
 #else
 extern struct sprd_debug_regs_access *sprd_debug_last_regs_access;
+extern volatile struct sec_debug_regs_access *sec_debug_last_regs_access;
 #if __LINUX_ARM_ARCH__ < 6
 /*
  * Half-word accesses are problematic with RiscPC due to limitations of
  * the bus. Rather than special-case the machine, just let the compiler
  * generate the access for CPUs prior to ARMv6.
  */
+#if defined(CONFIG_SPRD_DEBUG)
 #define __raw_writew(v,a)  ({sprd_debug_regs_write_start(v, a); \
                __chk_io_ptr(a); \
                *(volatile unsigned short __force  *)(a) = (v); \
@@ -132,12 +134,28 @@ extern struct sprd_debug_regs_access *sprd_debug_last_regs_access;
                sprd_debug_regs_access_done(); \
                v;\
                })
+#endif
+#if defined(CONFIG_SEC_DEBUG_REG_ACCESS)
+#define __raw_writew(v,a)  ({sec_debug_regs_write_start(v, a); \
+               __chk_io_ptr(a); \
+               *(volatile unsigned short __force  *)(a) = (v); \
+               sec_debug_regs_access_done(); \
+               })
+#define __raw_readw(a)     ({sec_debug_regs_read_start(a);\
+               volatile unsigned short v;  \
+               __chk_io_ptr(a); \
+               v = *(volatile unsigned short __force  *)(a); \
+               sec_debug_regs_access_done(); \
+               v;\
+               })
+#endif
 #else
 /*
  * When running under a hypervisor, we want to avoid I/O accesses with
  * writeback addressing modes as these incur a significant performance
  * overhead (the address generation must be emulated in software).
  */
+#if defined(CONFIG_SPRD_DEBUG)
 static inline void __raw_writew(u16 val, volatile void __iomem *addr)
 {
 	sprd_debug_regs_write_start(val, addr);
@@ -158,7 +176,30 @@ static inline u16 __raw_readw(const volatile void __iomem *addr)
 	return val;
 }
 #endif
+#if defined(CONFIG_SEC_DEBUG_REG_ACCESS)
+static inline void __raw_writew(u16 val, volatile void __iomem *addr)
+{
+	sec_debug_regs_write_start(val, addr);
+	asm volatile("strh %1, %0"
+		     : "+Q" (*(volatile u16 __force *)addr)
+		     : "r" (val));
+	sec_debug_regs_access_done();
+}
 
+static inline u16 __raw_readw(const volatile void __iomem *addr)
+{
+	u16 val;
+	sec_debug_regs_read_start(addr);
+	asm volatile("ldrh %1, %0"
+		     : "+Q" (*(volatile u16 __force *)addr),
+		       "=r" (val));
+	sec_debug_regs_access_done();
+	return val;
+}
+#endif
+#endif
+
+#if defined(CONFIG_SPRD_DEBUG)
 static inline void __raw_writeb(u8 val, volatile void __iomem *addr)
 {
 	sprd_debug_regs_write_start(val, addr);
@@ -198,6 +239,48 @@ static inline u32 __raw_readl(const volatile void __iomem *addr)
 	sprd_debug_regs_access_done();
 	return val;
 }
+#endif
+#if defined(CONFIG_SEC_DEBUG_REG_ACCESS)
+static inline void __raw_writeb(u8 val, volatile void __iomem *addr)
+{
+	sec_debug_regs_write_start(val, addr);
+	asm volatile("strb %1, %0"
+		     : "+Qo" (*(volatile u8 __force *)addr)
+		     : "r" (val));
+	sec_debug_regs_access_done();
+}
+
+static inline void __raw_writel(u32 val, volatile void __iomem *addr)
+{
+	sec_debug_regs_write_start(val, addr);
+	asm volatile("str %1, %0"
+		     : "+Qo" (*(volatile u32 __force *)addr)
+		     : "r" (val));
+	sec_debug_regs_access_done();
+}
+
+static inline u8 __raw_readb(const volatile void __iomem *addr)
+{
+	u8 val;
+	sec_debug_regs_read_start(addr);
+	asm volatile("ldrb %1, %0"
+		     : "+Qo" (*(volatile u8 __force *)addr),
+		       "=r" (val));
+	sec_debug_regs_access_done();
+	return val;
+}
+
+static inline u32 __raw_readl(const volatile void __iomem *addr)
+{
+	u32 val;
+	sec_debug_regs_read_start(addr);
+	asm volatile("ldr %1, %0"
+		     : "+Qo" (*(volatile u32 __force *)addr),
+		       "=r" (val));
+	sec_debug_regs_access_done();
+	return val;
+}
+#endif
 #endif
 
 /*

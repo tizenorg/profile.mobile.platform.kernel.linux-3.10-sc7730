@@ -847,6 +847,10 @@ static int gsp_src_set_fmt(struct device *dev, u32 fmt)
 	case DRM_FORMAT_NV12:
 		ctx->gsp_cfg.layer0_info.img_format = GSP_SRC_FMT_YUV420_2P;
 		break;
+	case DRM_FORMAT_NV21:
+		ctx->gsp_cfg.layer0_info.img_format = GSP_SRC_FMT_YUV420_2P;
+		ctx->gsp_cfg.layer0_info.endian_mode.uv_word_endn = GSP_WORD_ENDN_2;
+		break;
 	case DRM_FORMAT_YUV420:
 		ctx->gsp_cfg.layer0_info.img_format = GSP_SRC_FMT_YUV420_3P;
 		break;
@@ -870,7 +874,15 @@ static int gsp_src_set_fmt(struct device *dev, u32 fmt)
 			ctx->gsp_cfg.layer0_info.img_format);
 
 	gsp_write(cfg, SPRD_LAYER0_CFG);
-	gsp_write(ctx->gsp_cfg.layer0_info.endian_mode.y_word_endn, SPRD_LAYER0_ENDIAN);
+
+	cfg = gsp_read(SPRD_LAYER0_ENDIAN);
+	cfg |= (ctx->gsp_cfg.layer0_info.endian_mode.y_word_endn) |
+		(ctx->gsp_cfg.layer0_info.endian_mode.uv_word_endn << 3) |
+		(ctx->gsp_cfg.layer0_info.endian_mode.va_word_endn << 6) |
+		(ctx->gsp_cfg.layer0_info.endian_mode.rgb_swap_mode << 9) |
+		(ctx->gsp_cfg.layer0_info.endian_mode.a_swap_mode << 12);
+
+	gsp_write(cfg, SPRD_LAYER0_ENDIAN);
 
 	return 0;
 }
@@ -1000,6 +1012,10 @@ static int gsp_dst_set_fmt(struct device *dev, u32 fmt)
 	case DRM_FORMAT_NV12:
 		ctx->gsp_cfg.layer_des_info.img_format = GSP_DST_FMT_YUV420_2P;
 		break;
+	case DRM_FORMAT_NV21:
+		ctx->gsp_cfg.layer_des_info.img_format = GSP_DST_FMT_YUV420_2P;
+		ctx->gsp_cfg.layer_des_info.endian_mode.uv_word_endn = GSP_WORD_ENDN_2;
+		break;
 	case DRM_FORMAT_YUV420:
 		ctx->gsp_cfg.layer_des_info.img_format = GSP_DST_FMT_YUV420_3P;
 		break;
@@ -1022,7 +1038,15 @@ static int gsp_dst_set_fmt(struct device *dev, u32 fmt)
 			(SPRD_DEST_DATA_CFG_IMG_FORMAT_SET(ctx->gsp_cfg.layer_des_info.img_format));
 
 	gsp_write(cfg, SPRD_DES_DATA_CFG);
-	gsp_write(ctx->gsp_cfg.layer_des_info.endian_mode.y_word_endn, SPRD_DES_DATA_ENDIAN);
+
+	cfg = gsp_read(SPRD_DES_DATA_ENDIAN);
+	cfg |= (ctx->gsp_cfg.layer_des_info.endian_mode.y_word_endn) |
+		(ctx->gsp_cfg.layer_des_info.endian_mode.uv_word_endn << 3) |
+		(ctx->gsp_cfg.layer_des_info.endian_mode.va_word_endn << 6) |
+		(ctx->gsp_cfg.layer_des_info.endian_mode.rgb_swap_mode << 9) |
+		(ctx->gsp_cfg.layer_des_info.endian_mode.a_swap_mode << 12);
+
+	gsp_write(cfg, SPRD_DES_DATA_ENDIAN);
 
 	return 0;
 }
@@ -1869,7 +1893,7 @@ static int gsp_runtime_suspend(struct device *dev)
 {
 	struct gsp_context *ctx = get_gsp_context(dev);
 
-	DRM_INFO("%s\n", __func__);
+	DRM_DEBUG("%s\n", __func__);
 
 	if (pm_runtime_suspended(dev) || ctx->suspended)
 		return 0;
@@ -1881,7 +1905,7 @@ static int gsp_runtime_resume(struct device *dev)
 {
 	struct gsp_context *ctx = get_gsp_context(dev);
 
-	DRM_INFO("%s\n", __func__);
+	DRM_DEBUG("%s\n", __func__);
 
 	if (!pm_runtime_suspended(dev))
 		return gsp_clk_ctrl(ctx, true);

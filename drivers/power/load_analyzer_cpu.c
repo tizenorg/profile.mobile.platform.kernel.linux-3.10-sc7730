@@ -2096,11 +2096,11 @@ static const struct file_operations cpu_online_max_fops = {
 
 void debugfs_cpu_bus(struct dentry *d)
 {
-	if (!debugfs_create_file("available_cpu_freq", 0444
+	if (!debugfs_create_file("available_cpu_freq", 0400
 		, d, NULL,&available_cpu_freq_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "available_cpu_freq");
 
-	if (!debugfs_create_file("cpu_load_freq", 0644, d, NULL,&cpu_load_freq_fops))
+	if (!debugfs_create_file("cpu_load_freq", 0600, d, NULL,&cpu_load_freq_fops))
 		pr_err("%s : debugfs_create_file, error\n", "cpu_load_freq");
 
 #if defined(CONFIG_SLP_CHECK_BUS_LOAD)
@@ -2109,63 +2109,63 @@ void debugfs_cpu_bus(struct dentry *d)
 			pr_err("%s : debugfs_create_file, error\n", "last_cpu_load");
 #endif
 
-	if (!debugfs_create_file("check_running", 0644
+	if (!debugfs_create_file("check_running", 0600
 		, d, NULL,&check_running_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "check_running");
 
-	if (!debugfs_create_file("check_running_detail", 0644
+	if (!debugfs_create_file("check_running_detail", 0600
 		, d, NULL,&check_running_detail_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "check_running_detail");
 
-	if (!debugfs_create_file("check_running_raw", 0644
+	if (!debugfs_create_file("check_running_raw", 0600
 		, d, NULL,&check_running_raw_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "check_running_raw");
 
 #if defined (CONFIG_CHECK_ENTER_AFTR)
-	if (!debugfs_create_file("cpuidle_w_aftr_jig_check_en", 0644
+	if (!debugfs_create_file("cpuidle_w_aftr_jig_check_en", 0600
 		, d, NULL,&cpuidle_w_aftr_jig_check_en_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "cpuidle_w_aftr_jig_check_en");
 #endif
 
 #if defined(CONFIG_SLP_CHECK_BUS_LOAD)
-	if (!debugfs_create_file("cpu_bus_load_freq", 0644
+	if (!debugfs_create_file("cpu_bus_load_freq", 0600
 		, d, NULL,&cpu_bus_load_freq_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "cpu_bus_load_freq");
 
-	if (!debugfs_create_file("cpu_bus_load_freq_view", 0644
+	if (!debugfs_create_file("cpu_bus_load_freq_view", 0600
 		, d, NULL,&cpu_bus_load_freq_view_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "cpu_bus_load_freq_view");
 #endif
 
 
 #if defined(CONFIG_SLP_BUS_CLK_CHECK_LOAD)
-	if (!debugfs_create_file("cpu_bus_clk_freq", 0644
+	if (!debugfs_create_file("cpu_bus_clk_freq", 0600
 		, d, NULL,&cpu_bus_clk_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "cpu_bus_clk_freq");
 
-	if (!debugfs_create_file("check_clk", 0644
+	if (!debugfs_create_file("check_clk", 0600
 		, d, NULL,&check_clk_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "check_clk");
 #endif
 
 #if defined(CONFIG_LOAD_ANALYZER_PMQOS)
-	if (!debugfs_create_file("cpu_freq_min", 0644
+	if (!debugfs_create_file("cpu_freq_min", 0600
 		, d, NULL,&cpu_freq_min_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "cpu_freq_min");
 
-	if (!debugfs_create_file("cpu_freq_max", 0644
+	if (!debugfs_create_file("cpu_freq_max", 0600
 		, d, NULL,&cpu_freq_max_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "cpu_freq_max");
 
-	if (!debugfs_create_file("fixed_cpu_freq", 0644
+	if (!debugfs_create_file("fixed_cpu_freq", 0600
 		, d, NULL,&fixed_cpu_freq_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "fixed_cpu_freq");
 
-	if (!debugfs_create_file("cpu_online_min", 0644
+	if (!debugfs_create_file("cpu_online_min", 0600
 		, d, NULL,&cpu_online_min_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "cpu_online_min");
 
-	if (!debugfs_create_file("cpu_online_max", 0644
+	if (!debugfs_create_file("cpu_online_max", 0600
 		, d, NULL,&cpu_online_max_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "cpu_online_max");
 

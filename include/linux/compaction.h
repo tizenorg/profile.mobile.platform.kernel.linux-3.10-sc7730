@@ -72,6 +72,7 @@ static inline bool compaction_restarting(struct zone *zone, int order)
 		zone->compact_considered >= 1UL << zone->compact_defer_shift;
 }
 
+extern void compact_nodes(void);
 #else
 static inline unsigned long try_to_compact_pages(struct zonelist *zonelist,
 			int order, gfp_t gfp_mask, nodemask_t *nodemask,
@@ -102,6 +103,9 @@ static inline bool compaction_deferred(struct zone *zone, int order)
 	return true;
 }
 
+static inline void compact_nodes(void)
+{
+}
 #endif /* CONFIG_COMPACTION */
 
 #if defined(CONFIG_COMPACTION) && defined(CONFIG_SYSFS) && defined(CONFIG_NUMA)

@@ -1024,6 +1024,15 @@ static void create_eir(struct hci_dev *hdev, u8 *data)
 	ptr = create_uuid16_list(hdev, ptr, HCI_MAX_EIR_LENGTH - (ptr - data));
 	ptr = create_uuid32_list(hdev, ptr, HCI_MAX_EIR_LENGTH - (ptr - data));
 	ptr = create_uuid128_list(hdev, ptr, HCI_MAX_EIR_LENGTH - (ptr - data));
+#ifdef CONFIG_TIZEN_WIP
+	if (hdev->manufacturer_len > 0 &&
+			ptr - data + hdev->manufacturer_len + 2 <= HCI_MAX_EIR_LENGTH) {
+		ptr[0] = hdev->manufacturer_len + 1;
+		ptr[1] = EIR_MANUFACTURER_DATA;
+		memcpy(ptr + 2, hdev->manufacturer_data, hdev->manufacturer_len);
+		ptr += hdev->manufacturer_len + 2;
+	}
+#endif
 }
 
 static void update_eir(struct hci_request *req)
@@ -1095,6 +1104,7 @@ static void update_class(struct hci_request *req)
 	hci_req_add(req, HCI_OP_WRITE_CLASS_OF_DEV, sizeof(cod), cod);
 }
 
+#ifndef CONFIG_TIZEN_WIP
 static bool get_connectable(struct hci_dev *hdev)
 {
 	struct pending_cmd *cmd;
@@ -1110,6 +1120,7 @@ static bool get_connectable(struct hci_dev *hdev)
 
 	return test_bit(HCI_CONNECTABLE, &hdev->dev_flags);
 }
+#endif
 
 static void disable_advertising(struct hci_request *req)
 {
@@ -1122,8 +1133,13 @@ static void enable_advertising(struct hci_request *req)
 {
 	struct hci_dev *hdev = req->hdev;
 	struct hci_cp_le_set_adv_param cp;
+#ifndef CONFIG_TIZEN_WIP
 	u8 own_addr_type, enable = 0x01;
 	bool connectable;
+#else
+	u8 own_addr_type = ADDR_LE_DEV_PUBLIC;
+	u8 enable = 0x01;
+#endif
 
 	if (hci_conn_num(hdev, LE_LINK) > 0)
 		return;
@@ -1138,6 +1154,7 @@ static void enable_advertising(struct hci_request *req)
 	 */
 	clear_bit(HCI_LE_ADV, &hdev->dev_flags);
 
+#ifndef CONFIG_TIZEN_WIP
 	connectable = get_connectable(hdev);
 
 	/* Set require_privacy to true only when non-connectable
@@ -1146,16 +1163,14 @@ static void enable_advertising(struct hci_request *req)
 	 */
 	if (hci_update_random_address(req, !connectable, &own_addr_type) < 0)
 		return;
+#endif
 
 	memset(&cp, 0, sizeof(cp));
 	cp.min_interval = cpu_to_le16(hdev->le_adv_min_interval);
 	cp.max_interval = cpu_to_le16(hdev->le_adv_max_interval);
 #ifdef CONFIG_TIZEN_WIP
 	cp.filter_policy = hdev->adv_filter_policy;
-	if (hdev->adv_type != LE_ADV_SCAN_IND)
-		cp.type = connectable ? LE_ADV_IND : LE_ADV_NONCONN_IND;
-	else
-		cp.type = hdev->adv_type;
+	cp.type = hdev->adv_type;
 #else
 	cp.type = connectable ? LE_ADV_IND : LE_ADV_NONCONN_IND;
 #endif
@@ -2014,10 +2029,6 @@ static int set_connectable(struct sock *sk, struct hci_dev *hdev, void *data,
 	}
 
 no_scan_update:
-#ifdef CONFIG_TIZEN_WIP
-	if (cp->val || test_bit(HCI_FAST_CONNECTABLE, &hdev->dev_flags))
-		write_fast_connectable(&req, true);
-#else
 	/* If we're going from non-connectable to connectable or
 	 * vice-versa when fast connectable is enabled ensure that fast
 	 * connectable gets disabled. write_fast_connectable won't do
@@ -2026,7 +2037,6 @@ no_scan_update:
 	 */
 	if (cp->val || test_bit(HCI_FAST_CONNECTABLE, &hdev->dev_flags))
 		write_fast_connectable(&req, false);
-#endif
 
 	/* Update the advertising parameters if necessary */
 	if (test_bit(HCI_ADVERTISING, &hdev->dev_flags))

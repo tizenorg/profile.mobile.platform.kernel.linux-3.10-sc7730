@@ -422,9 +422,7 @@ static bool __is_proc_mmap_mappable(struct task_struct *task)
 	struct sspt_proc *proc;
 	unsigned long r_debug_addr;
 	unsigned int state;
-	const unsigned int r_state_offset = sizeof(int) +
-					    sizeof(void *) +
-					    sizeof(long);
+	enum { r_state_offset = sizeof(int) + sizeof(void *) + sizeof(long) };
 
 	if (linker_vma == NULL)
 		return false;
@@ -838,6 +836,7 @@ static int write_msg_handler(struct kprobe *p, struct pt_regs *regs)
 	unsigned long caller_offset;
 	unsigned long call_type_offset;
 	unsigned long caller_addr;
+	bool drop;
 	int ret;
 
 	/* FIXME: swap_get_uarg uses get_user(), it might sleep */
@@ -853,8 +852,8 @@ static int write_msg_handler(struct kprobe *p, struct pt_regs *regs)
 		return 0;
 	}
 
-	ret = preload_threads_get_drop(current);
-	if (ret > 0)
+	ret = preload_threads_get_drop(current, &drop);
+	if (ret == 0 && drop)
 		return 0;
 
 	buf = kmalloc(len, GFP_ATOMIC);

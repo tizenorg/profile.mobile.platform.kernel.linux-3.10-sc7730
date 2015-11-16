@@ -32,6 +32,9 @@
 #ifdef CONFIG_SEC_LOG_BUF_NOCACHE
 #include <linux/memblock.h>
 #endif
+#ifdef CONFIG_SEC_DEBUG_REG_ACCESS
+#include <soc/sprd/arch_lock.h>
+#endif
 
 /*
  * Example usage: sec_log=256K@0x45000000
@@ -46,6 +49,7 @@
 
 /* These variables are also protected by logbuf_lock */
 static unsigned *sec_log_ptr;
+static unsigned *sec_log_mag;
 static char *sec_log_buf;
 static unsigned sec_log_size;
 
@@ -60,7 +64,6 @@ static inline void sec_log_save_old(void)
 {
 }
 #endif
-#define LOG_LENGTH_B (1024*1024)
 
 extern void register_log_text_hook(void (*f)(char *text, size_t size),
 	char *buf, unsigned *position, size_t bufsize);
@@ -109,41 +112,58 @@ static int __init sec_log_setup(char *str)
 #ifdef CONFIG_SEC_LOG_BUF_NOCACHE
 	sec_log_buf_nocache_enable=1;
 #else
-	size_of_struct_sec_log_buffer = ((sizeof(struct sec_log_buffer)+4)/4)*4;
-	// sec_logbuf_size(1M) + sec_log_buffer(16B) + sec_log_ptr(4B) + sec_log_mag(4B)
-	alloc_size = sec_logbuf_size + size_of_struct_sec_log_buffer + 4 + 4;
-	if(reserve_bootmem(sec_logbuf_base_addr,alloc_size, BOOTMEM_EXCLUSIVE)) {
-		printk("%s: fail to reserve memory\n",__func__);
-		return -1;
-	}
-	else {
-			printk("%s: success to reserve memory, base_phys=%x, size=%x\n",__func__,sec_logbuf_base_addr, alloc_size);
-	}
 	sec_log_buf_nocache_enable=0;
 #endif
+	 size_of_struct_sec_log_buffer = ((sizeof(struct sec_log_buffer)+4)/4)*4;
+
+	/* sec_logbuf_size(1M-512B) + sec_log_buffer(24B) + sec_log_ptr(4B) + sec_log_mag(4B) */
+        alloc_size = sec_logbuf_size + size_of_struct_sec_log_buffer + 4 + 4;
+
+#ifdef CONFIG_SEC_DEBUG_REG_ACCESS
+	alloc_size += sizeof(struct sec_debug_regs_access) * NR_CPUS + HWSPINLOCK_ID_TOTAL_NUMS;
+#endif
+        if(reserve_bootmem(sec_logbuf_base_addr,alloc_size, BOOTMEM_EXCLUSIVE)) {
+                printk("%s: fail to reserve memory\n",__func__);
+                return -1;
+        }
+        else {
+                        printk("%s: success to reserve memory, base_phys=%x, size=%x\n",__func__,sec_logbuf_base_addr, alloc_size);
+        }
+
 printk("sec_log_setup:Exit.\n");
 	return 0;
 
 }
-#ifdef CONFIG_SEC_LOG_BUF_NOCACHE
-early_param("sec_log",sec_log_setup);
-#else
+
 __setup("sec_log=", sec_log_setup);
-#endif
 
 #ifdef CONFIG_SEC_DEBUG_REG_ACCESS
 void sec_debug_set_last_regs_access(void)
 {
 	unsigned addr = (unsigned)sec_log_buf;
 	unsigned size_struct_sec_log_buffer = sizeof(struct sec_log_buffer);
-	extern struct sec_debug_regs_access *sec_debug_last_regs_access;
+	unsigned offset = 0;
+	phys_addr_t sec_debug_last_regs_paddr;
+	extern volatile struct sec_debug_regs_access *sec_debug_last_regs_access;
 	extern char *sec_debug_local_hwlocks_status;
 
+	if (!get_sec_debug_level())
+		return;
+
 	size_struct_sec_log_buffer = (((size_struct_sec_log_buffer + 4) / 4)* 4);
-	addr = addr+sec_logbuf_size+size_struct_sec_log_buffer;
-	sec_debug_last_regs_access = addr;
+	offset = sec_logbuf_size + sizeof(*sec_log_ptr) + sizeof(*sec_log_mag);
+	sec_debug_last_regs_access = addr + offset;
+	sec_debug_last_regs_paddr = sec_logbuf_base_addr + size_struct_sec_log_buffer + offset;
 	sec_debug_local_hwlocks_status = sec_debug_last_regs_access + NR_CPUS;
-	memset(sec_debug_local_hwlocks_status,0,64);
+	memset(sec_debug_local_hwlocks_status, 0, HWSPINLOCK_ID_TOTAL_NUMS);
+
+	pr_info("sec_debug_last_regs_access: 0x%p (A:0x%x), size: %d\n",
+			sec_debug_last_regs_access, sec_debug_last_regs_paddr,
+			sizeof(struct sec_debug_regs_access) * NR_CPUS);
+	pr_info("sec_debug_local_hwlocks_status: 0x%p (A:0x%x), size: %d\n",
+			sec_debug_local_hwlocks_status,
+			sec_debug_last_regs_paddr + sizeof(struct sec_debug_regs_access) * NR_CPUS,
+			HWSPINLOCK_ID_TOTAL_NUMS);
 }
 #endif
 
@@ -162,10 +182,10 @@ static int __init sec_logbuf_conf_memtype(void)
 #else
 	unsigned long base = 0;
 #endif
-	unsigned *sec_log_mag;
-	unsigned size_of_log_ptr = sizeof(*sec_log_mag);
-	unsigned size_of_log_mag = sizeof(*sec_log_ptr);
+	unsigned size_of_log_ptr = sizeof(*sec_log_ptr);
+	unsigned size_of_log_mag = sizeof(*sec_log_mag);
 	unsigned size_struct_sec_log_buffer = sizeof(struct sec_log_buffer);
+	unsigned total_size_for_sec_log = 0;
 
 	/* Round-up to 4 byte alignment */
 	size_struct_sec_log_buffer = (((size_struct_sec_log_buffer + 4) / 4)* 4);
@@ -173,6 +193,12 @@ static int __init sec_logbuf_conf_memtype(void)
 		"size_struct_sec_log_buffer:%d\n",
 		__func__, size_of_log_ptr, size_of_log_mag,
 					size_struct_sec_log_buffer);
+	total_size_for_sec_log = sec_logbuf_size + size_of_log_ptr +
+				size_of_log_mag + size_struct_sec_log_buffer;
+#ifdef CONFIG_SEC_DEBUG_REG_ACCESS
+	total_size_for_sec_log += sizeof(struct sec_debug_regs_access) * NR_CPUS + HWSPINLOCK_ID_TOTAL_NUMS;
+#endif
+	pr_info("%s: total_size_for_sec_log: %d\n", __func__, total_size_for_sec_log);
 
 	/**********************************************************************
 	 ___________________
@@ -191,7 +217,7 @@ static int __init sec_logbuf_conf_memtype(void)
 
 	if(sec_log_buf_nocache_enable == 1)
 	{
-		base = ioremap_nocache(sec_logbuf_base_addr, LOG_LENGTH_B);
+		base = ioremap_nocache(sec_logbuf_base_addr, total_size_for_sec_log);
 		if(base == NULL){
 			printk("ioremap nocache fail\n");
 			return -1;

@@ -65,6 +65,12 @@ config MUIC_SUPPORT_RUSTPROOF
 	help
 	 Close UART path in case of no battery to prevent rust on D+/D- line on IF connector
 
+config MUIC_SUPPORT_PS_CABLE
+        bool "SUPPORT Samsung Power Sharing Cable EP-SG900"
+        default n
+        help
+         If you say "YES", power sharing feature will be supported without OTG connector
+
 config MFD_AS3711
 	bool "AMS AS3711"
 	select MFD_CORE

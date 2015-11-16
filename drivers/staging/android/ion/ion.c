@@ -1435,7 +1435,7 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	} data;
 
 	dir = ion_ioctl_dir(cmd);
-	pr_info("%s:cmd[0x%x]dir[0x%x]\n", __func__, cmd, dir);
+	pr_debug("%s:cmd[0x%x]dir[0x%x]\n", __func__, cmd, dir);
 
 	if (_IOC_SIZE(cmd) > sizeof(data)) {
 		ret = -EINVAL;
@@ -1540,7 +1540,8 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	}
 
 out:
-	pr_info("%s:cmd[0x%x]ret[%d]\n", __func__, cmd, ret);
+	if (ret)
+		pr_info("%s:cmd[0x%x]ret[%d]\n", __func__, cmd, ret);
 
 	return ret;
 }

@@ -99,7 +99,12 @@ static long sprdfb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 #ifdef CONFIG_FB_MMAP_CACHED
 static int sprdfb_mmap(struct fb_info *info, struct vm_area_struct *vma);
 #endif
-
+#ifdef CONFIG_FB_ESD_SUPPORT
+struct sprdfb_device *sprd_fb_dev;
+#endif
+#ifdef CONFIG_SPRDFB_MDNIE_LITE_TUNING
+extern int sprdfb_mdnie_reg (struct sprdfb_device *dev, mdnie_w w, mdnie_r r, mdnie_c c);
+#endif
 static struct fb_ops sprdfb_ops = {
 	.owner = THIS_MODULE,
 	.fb_open = sprdfb_open,
@@ -118,7 +123,25 @@ static struct fb_ops sprdfb_ops = {
 	.fb_mmap = sprdfb_mmap,
 #endif
 };
-
+#ifdef CONFIG_FB_ESD_SUPPORT
+void panel_esd_enable (bool enable)
+{
+	if ((enable) && (sprd_fb_dev->enable == 1)) {
+		if (!sprd_fb_dev->ESD_work_start) {
+			printk("sprdfb: schedule ESD work queue[vblank]\n");
+			schedule_delayed_work(&sprd_fb_dev->ESD_work,
+				msecs_to_jiffies(sprd_fb_dev->ESD_timeout_val));
+			sprd_fb_dev->ESD_work_start = true;
+		}
+	} else {
+		if (sprd_fb_dev->ESD_work_start == true) {
+			printk("sprdfb: cancel ESD work queue[vblank]\n");
+			cancel_delayed_work(&sprd_fb_dev->ESD_work);
+			sprd_fb_dev->ESD_work_start = false;
+		}
+	}
+}
+#endif
 #ifdef CONFIG_FB_MMAP_CACHED
 static int sprdfb_mmap(struct fb_info *info,struct vm_area_struct *vma)
 {
@@ -401,7 +424,6 @@ static int sprdfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 	return 0;
 }
 
-#include <video/sprd_fb.h>
 static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 			unsigned long arg)
 {
@@ -771,9 +793,10 @@ static ssize_t sprdfb_overlay_info_show(struct device *dev,
 			layer_type,
 			fb_dev->overlay_data.osd_buffer,
 			fb_dev->overlay_data.img_buffer);
-	pos += sprintf(buf+pos, "y_endian[%d], uv_endian[%d], ",
-			fb_dev->overlay_data.y_endian,
-			fb_dev->overlay_data.uv_endian);
+	pos += sprintf(buf+pos, "y_endian[%d], u_endian[%d], v_endian[%d] ",
+			fb_dev->overlay_data.endian.y,
+			fb_dev->overlay_data.endian.u,
+			fb_dev->overlay_data.endian.v);
 	pos += sprintf(buf+pos, "dst: x[%d], y[%d], w[%d], h[%d]\n",
 			fb_dev->overlay_data.rect.x,
 			fb_dev->overlay_data.rect.y,
@@ -1008,7 +1031,13 @@ static int sprdfb_probe(struct platform_device *pdev)
 	dev->check_esd_time = 0;
 	dev->reset_dsi_time = 0;
 	dev->panel_reset_time = 0;
+	sprd_fb_dev = dev;
 #endif
+#ifdef CONFIG_SPRDFB_MDNIE_LITE_TUNING
+	sprdfb_mdnie_reg(dev, dev->panel->ops->panel_send_mdnie_cmds,
+		NULL, dev->panel->ops->panel_get_color_coordinates);
+#endif
+
 #ifdef CONFIG_SLEEP_MONITOR
 	sleep_monitor_register_ops(dev, &sprdfb_sleep_monitor_ops,
 		SLEEP_MONITOR_LCD);

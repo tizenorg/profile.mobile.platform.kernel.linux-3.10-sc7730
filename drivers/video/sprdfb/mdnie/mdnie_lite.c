@@ -150,6 +150,8 @@ static int mdnie_write(struct sprdfb_device *fb_dev, struct mdnie_table *table)
 
 	if (mdnie->enable)
 		ret = mdnie->ops.write(fb_dev, table->tune, MDNIE_CMD_MAX);
+	else
+		dev_err(mdnie->dev, "mdnie state is set to off!!\n");
 
 	return ret;
 }
@@ -541,9 +543,11 @@ static int fb_notifier_callback(struct notifier_block *self,
 {
 	struct mdnie_lite_device *mdnie;
 	struct fb_event *evdata = data;
+	struct sprdfb_device *fb_dev;
 	int fb_blank;
 
 	mdnie = container_of(self, struct mdnie_lite_device, fb_notif);
+	fb_dev = dev_get_drvdata(mdnie->dev);
 
 	switch (event) {
 	case FB_EVENT_BLANK:
@@ -561,7 +565,7 @@ static int fb_notifier_callback(struct notifier_block *self,
 		mutex_lock(&mdnie->lock);
 		mdnie->enable = 1;
 		mutex_unlock(&mdnie->lock);
-		/* mdnie_update(fb_dev, mdnie); */
+		mdnie_update(fb_dev, mdnie);
 
 	} else if (fb_blank == FB_BLANK_POWERDOWN) {
 		mutex_lock(&mdnie->lock);
@@ -609,7 +613,7 @@ int sprdfb_mdnie_reg(struct sprdfb_device *dev, mdnie_w w, mdnie_r r, mdnie_c c)
 	}
 
 	mdnie->scenario = SCENARIO_UI;
-	mdnie->mode = MODE_STANDARD;
+	mdnie->mode = MODE_AUTO;
 	mdnie->accessibility = ACCESSIBILITY_OFF;
 	mdnie->outdoor = OUTDOOR_OFF;
 

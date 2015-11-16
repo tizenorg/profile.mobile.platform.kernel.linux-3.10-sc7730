@@ -764,7 +764,7 @@ static void dump_one_task_info(struct task_struct *tsk, bool is_main)
 }
 
 /* timeout for dog bark/bite */
-#define DELAY_TIME 20000
+#define DELAY_TIME 40000
 #define HANG_ADDRESS 0x60900000	/* VSP CTRL Register */
 
 static void simulate_apps_wdog_bark(void)
@@ -796,6 +796,7 @@ static void simulate_bus_hang(void)
 
 	/* simulate */
 	hang_address = ioremap(address, SZ_4K);
+	pr_emerg("Simulating bus hang. addr=0x%x time=%lu\n", hang_address, jiffies);
 	dummy_value = readl_relaxed(hang_address);
 	mdelay(DELAY_TIME);
 	/* if we hit here, test had failed */
@@ -834,8 +835,8 @@ static int force_error(const char *val, struct kernel_param *kp)
 	return 0;
 }
 
-/* Build warning fix */
-#if 0
+
+
 static void dump_all_task_info(void)
 {
 	struct task_struct *frst_tsk;
@@ -996,7 +997,7 @@ static void dump_cpu_stat(void)
 				cpu_i, per_softirq_sums[cpu_i], softirq_to_name[cpu_i]);
 	pr_info(" -----------------------------------------------------------------------------------\n");
 }
-#endif
+
 
 /*
  * Called from dump_stack()
@@ -1060,13 +1061,13 @@ static int sec_debug_panic_handler(struct notifier_block *nb,
 
 	pr_err("(%s) checksum_sched_log: %x\n", __func__, checksum_sched_log());
 
-#if 0
+
 	/*show_state();*/
 	dump_all_task_info();
 	dump_cpu_stat();
 	/* No backtrace */
 	show_state_filter(TASK_STATE_MAX);
-#endif
+
 	sec_debug_dump_stack();
 	sec_debug_hw_reset();
 
@@ -1195,12 +1196,6 @@ __init int sec_debug_init(void)
 	map_noncached_aux_log_buf();
 #endif
 
-#ifdef CONFIG_SEC_DEBUG_REG_ACCESS
-	sec_debug_last_regs_access = (struct sec_debug_regs_access*)dma_alloc_coherent(
-		NULL, sizeof(struct sec_debug_regs_access)*NR_CPUS, &addr, GFP_KERNEL);
-	pr_info("*** %s, size:%u, sec_debug_last_regs_access:%p *** \n",
-		__func__, sizeof(struct sec_debug_regs_access)*NR_CPUS, sec_debug_last_regs_access);
-#endif
 	return 0;
 }
 

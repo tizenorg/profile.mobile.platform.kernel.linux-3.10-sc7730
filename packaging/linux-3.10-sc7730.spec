@@ -2,7 +2,7 @@
 
 Name: linux-3.10-sc7730
 Summary: The Linux Kernel
-Version: Tizen_sc7730_20150907_1_2edc4585
+Version: Tizen_sc7730_20150926_1_720d288e
 Release: 1
 License: GPL-2.0
 Group: System/Kernel

@@ -47,7 +47,7 @@ static int __do_usm_stop(void *data)
 	return 0;
 }
 
-static void do_usm_stop(void)
+static int do_usm_stop(void)
 {
 	int ret;
 
@@ -62,6 +62,8 @@ static void do_usm_stop(void)
 	unregister_helper_bottom();
 	sspt_proc_free_all();
 	exec_cbs(STOP_CB_TD);
+
+	return ret;
 }
 
 static int do_usm_start(void)

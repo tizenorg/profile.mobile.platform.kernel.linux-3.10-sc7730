@@ -413,13 +413,13 @@ static void mdnie_cmds_send(struct sprdfb_device *fb_dev, struct mdnie_command *
 	int i = 0;
 	struct panel_spec *panel = fb_dev->panel;
 
+	for (i = 0; i < len; i++) {
 #ifdef CONFIG_FB_VSYNC_SUPPORT
-        if (fb_dev->ctrl->wait_for_vsync)
-                fb_dev->ctrl->wait_for_vsync(fb_dev);
+		if (fb_dev->ctrl->wait_for_vsync)
+			fb_dev->ctrl->wait_for_vsync(fb_dev);
 #endif
-
-	for (i = 0; i < len; i++)
 		mipi_dcs_send(panel, seq[i].sequence, seq[i].size);
+	}
 
 	return;
 }
@@ -1344,7 +1344,7 @@ static struct panel_operations lcd_s6e8aa5x01_mipi_operations = {
 };
 
 static struct timing_rgb lcd_s6e8aa5x01_mipi_timing = {
-	.hfp = 84,  /* unit: pixel */
+	.hfp = 130,  /* unit: pixel */
 	.hbp = 90,
 	.hsync = 40,
 	.vfp = 14, /* unit: line */

@@ -33,7 +33,7 @@
 #define LOCAL static
 /*#define LOCAL*/
 
-#define DCAM_DRV_DEBUG
+//#define DCAM_DRV_DEBUG
 #define DCAM_LOWEST_ADDR                               0x800
 #define DCAM_ADDR_INVALID(addr)                       ((uint32_t)(addr) < DCAM_LOWEST_ADDR)
 #define DCAM_YUV_ADDR_INVALID(y,u,v) \
@@ -650,10 +650,10 @@ int32_t dcam_module_en(struct device_node *dn)
 		atomic_set(&s_rotation_flag, 0);
 		memset((void*)s_user_func, 0, sizeof(s_user_func));
 		memset((void*)s_user_data, 0, sizeof(s_user_data));
-		printk("DCAM: register isr, 0x%x \n", REG_RD(DCAM_INT_MASK));
+		DCAM_TRACE("DCAM: register isr, 0x%x \n", REG_RD(DCAM_INT_MASK));
 
 		irq_no = parse_irq(dn);
-		printk("DCAM: irq_no = 0x%x \n", irq_no);
+		DCAM_TRACE("DCAM: irq_no = 0x%x \n", irq_no);
 		ret = request_irq(irq_no,
 				_dcam_isr_root,
 				IRQF_SHARED,
@@ -694,11 +694,12 @@ int32_t dcam_module_dis(struct device_node *dn)
 
 		sci_glb_clr(DCAM_EB, DCAM_EB_BIT);
 		dcam_set_clk(dn,DCAM_CLK_NONE);
-		printk("DCAM: un register isr \n");
+		DCAM_TRACE("DCAM: un register isr \n");
 		irq_no = parse_irq(dn);
 		free_irq(irq_no, (void*)&s_dcam_irq);
 		ret = clk_mm_i_eb(dn,0);
 		if (ret) {
+			printk("DCAM: un register isr err\n");
 			rtn = -DCAM_RTN_MAX;
 		}
 		wake_unlock(&dcam_wakelock);
@@ -817,7 +818,7 @@ int32_t dcam_set_clk(struct device_node *dn, enum dcam_clk_sel clk_sel)
 		parent = "clk_76p8m";
 		break;
 	case DCAM_CLK_NONE:
-		printk("DCAM close CLK %d \n", (int)clk_get_rate(s_dcam_clk));
+		DCAM_TRACE("DCAM close CLK %d \n", (int)clk_get_rate(s_dcam_clk));
 		if (s_dcam_clk) {
 			clk_disable(s_dcam_clk);
 			clk_put(s_dcam_clk);
@@ -882,7 +883,7 @@ int32_t dcam_update_path(enum dcam_path_index path_index, struct dcam_size *in_s
 		DCAM_RTN_IF_ERR;
 		rtn = dcam_path0_cfg(DCAM_PATH_OUTPUT_SIZE, out_size);
 		DCAM_RTN_IF_ERR;
-		printk("DCAM: To update path0 \n");
+		DCAM_TRACE("DCAM: To update path0 \n");
 		//_dcam_auto_copy(DCAM_PATH_IDX_0);
 	}
 
@@ -1258,7 +1259,7 @@ int32_t dcam_stop(void)
 	DCAM_CHECK_ZERO(s_p_dcam_mod);
 
 	s_p_dcam_mod->state |= DCAM_STATE_QUICKQUIT;
-	printk("DCAM dcam_stop In \n");
+	DCAM_TRACE("DCAM dcam_stop In \n");
 	if (atomic_read(&s_resize_flag)) {
 		s_p_dcam_mod->wait_resize_done = 1;
 		rtn = down_timeout(&s_p_dcam_mod->resize_done_sema, DCAM_PATH_TIMEOUT);
@@ -1269,7 +1270,7 @@ int32_t dcam_stop(void)
 	}
 
 	mutex_lock(&dcam_sem);
-	printk("DCAM dcam_stop get  dcam_sem\n");
+	DCAM_TRACE("DCAM dcam_stop get  dcam_sem\n");
 	spin_lock_irqsave(&dcam_lock, flag);
 
 	dcam_glb_reg_owr(DCAM_INT_MASK,
@@ -1943,10 +1944,11 @@ int32_t dcam_path0_cfg(enum dcam_cfg_id id, void *param)
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 		if (rot_mode >= DCAM_PATH_FRAME_ROT_MAX) {
 			rtn = DCAM_RTN_PATH_FRM_DECI_ERR;
+			printk("rot mode ret err =%d\n", rtn);
 		}else{
 			path->rot_mode = rot_mode;
 			path->valid_param.rot_mode = 1;
-			printk("zcf dcam_path0_cfg rot: = %d\n",path->rot_mode);
+			DCAM_TRACE("zcf dcam_path0_cfg rot: = %d\n",path->rot_mode);
 		}
 		break;
 	}
@@ -2199,10 +2201,11 @@ int32_t dcam_path1_cfg(enum dcam_cfg_id id, void *param)
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 		if (rot_mode >= DCAM_PATH_FRAME_ROT_MAX) {
 			rtn = DCAM_RTN_PATH_FRM_DECI_ERR;
+			printk("zcf dcam_path1_cfg rot: err ret =%d\n", rtn);
 		}else{
 			path->rot_mode = rot_mode;
 			path->valid_param.rot_mode = 1;
-			printk("zcf dcam_path1_cfg rot:\n",path->rot_mode);
+			DCAM_TRACE("zcf dcam_path1_cfg rot:\n",path->rot_mode);
 		}
 		break;
 	}
@@ -2459,10 +2462,11 @@ int32_t dcam_path2_cfg(enum dcam_cfg_id id, void *param)
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 		if (rot_mode >= DCAM_PATH_FRAME_ROT_MAX) {
 			rtn = DCAM_RTN_PATH_FRM_DECI_ERR;
+			printk("zcf dcam_path2_cfg rot err ret=%d:\n", rtn);
 		}else{
 			path->rot_mode = rot_mode;
 			path->valid_param.rot_mode = 1;
-			printk("zcf dcam_path2_cfg rot:\n",path->rot_mode);
+			DCAM_TRACE("zcf dcam_path2_cfg rot:\n",path->rot_mode);
 		}
 		break;
 	}
@@ -2478,7 +2482,7 @@ int32_t    dcam_get_resizer(uint32_t wait_opt)
 {
 	int32_t                 rtn = 0;
 
-	printk("resizer_get:%d\n",current->pid);
+	DCAM_TRACE("resizer_get:%d\n",current->pid);
 
 	
 	if( 0 == wait_opt) {
@@ -2494,7 +2498,7 @@ int32_t    dcam_get_resizer(uint32_t wait_opt)
 
 int32_t    dcam_rel_resizer(void)
 {
-	printk("resizer_put:%d\n",current->pid);
+	DCAM_TRACE("resizer_put:%d\n",current->pid);
 	mutex_unlock(&dcam_sem);
 	return 0;
 }
@@ -2656,7 +2660,7 @@ int32_t    dcam_get_path_id(struct dcam_get_path_id *path_id, uint32_t *channel_
 		return -1;
 	}
 
-	printk("DCAM: fourcc 0x%x, input w %d, h %d output w %d, h %d input_trim %d %d %d %d shrink %d need_isp %d id:%d\n", path_id->fourcc,
+	DCAM_TRACE("DCAM: fourcc 0x%x, input w %d, h %d output w %d, h %d input_trim %d %d %d %d shrink %d need_isp %d id:%d\n", path_id->fourcc,
 		path_id->input_size.w, path_id->input_size.h,
 		path_id->output_size.w, path_id->output_size.h,
 		path_id->input_trim.x, path_id->input_trim.y, path_id->input_trim.w, path_id->input_trim.h,
@@ -2833,9 +2837,9 @@ LOCAL void _dcam_path0_set(void)
 
 		if(path->valid_param.rot_mode) {
 			path->valid_param.rot_mode = 0;
-			printk("zcf dcam_path2_set  rot_mod :%d reg:%x\n",path->rot_mode,REG_RD(DCAM_PATH2_CFG));
+			DCAM_TRACE("zcf dcam_path2_set  rot_mod :%d reg:%x\n",path->rot_mode,REG_RD(DCAM_PATH2_CFG));
 			REG_MWR(DCAM_PATH2_CFG, BIT_10 | BIT_9, path->rot_mode << 9);
-			printk("zcf dcam_path2_set  rot_mod :%d reg:%x\n",path->rot_mode,REG_RD(DCAM_PATH2_CFG));		
+			DCAM_TRACE("zcf dcam_path2_set  rot_mod :%d reg:%x\n",path->rot_mode,REG_RD(DCAM_PATH2_CFG));
 		}
 
 		dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_18, BIT_18, DCAM_ENDIAN_REG); // axi write
@@ -2929,15 +2933,15 @@ LOCAL void _dcam_path1_set(struct dcam_path_desc *path)
 
 	if(path->valid_param.rot_mode){
 		path->valid_param.rot_mode = 0;
-		printk("zcf dcam_path1_set 1 rot_mod :%d reg:%x\n",path->rot_mode,REG_RD(DCAM_PATH1_CFG));
+		DCAM_TRACE("zcf dcam_path1_set 1 rot_mod :%d reg:%x\n",path->rot_mode,REG_RD(DCAM_PATH1_CFG));
 		REG_MWR(DCAM_PATH1_CFG, BIT_10 | BIT_9, path->rot_mode << 9);
-		printk("zcf dcam_path1_set 1 rot_mod :%d reg:%x\n",path->rot_mode,REG_RD(DCAM_PATH1_CFG));
+		DCAM_TRACE("zcf dcam_path1_set 1 rot_mod :%d reg:%x\n",path->rot_mode,REG_RD(DCAM_PATH1_CFG));
 	}
 
 	if (path->valid_param.shrink) {
 		path->valid_param.shrink = 0;
 		REG_MWR(DCAM_PATH1_CFG, BIT_25 | BIT_26, path->shrink << 25);
-		printk("DCAM: path 1: shrink, %d \n", path->shrink);
+		DCAM_TRACE("DCAM: path 1: shrink, %d \n", path->shrink);
 	}
 
 }
@@ -3029,15 +3033,15 @@ LOCAL void _dcam_path2_set(void)
 
 	if (path->valid_param.rot_mode){
 		path->valid_param.rot_mode = 0;
-		printk("zcf dcam_path2_set  rot_mod :%d reg:%x\n",path->rot_mode,REG_RD(DCAM_PATH2_CFG));
+		DCAM_TRACE("zcf dcam_path2_set  rot_mod :%d reg:%x\n",path->rot_mode,REG_RD(DCAM_PATH2_CFG));
 		REG_MWR(DCAM_PATH2_CFG, BIT_10 | BIT_9, path->rot_mode << 9);
-		printk("zcf dcam_path2_set  rot_mod :%d reg:%x\n",path->rot_mode,REG_RD(DCAM_PATH2_CFG));
+		DCAM_TRACE("zcf dcam_path2_set  rot_mod :%d reg:%x\n",path->rot_mode,REG_RD(DCAM_PATH2_CFG));
 	}
 
 	if (path->valid_param.shrink) {
 		path->valid_param.shrink = 0;
 		REG_MWR(DCAM_PATH2_CFG, BIT_25 | BIT_26, path->shrink << 25);
-		printk("DCAM: path 2: shrink, %d \n", path->shrink);
+		DCAM_TRACE("DCAM: path 2: shrink, %d \n", path->shrink);
 	}
 
 }
@@ -3338,19 +3342,24 @@ LOCAL int32_t _dcam_path_set_next_frm(enum dcam_path_index path_index, uint32_t 
 	}
 
 	DCAM_TRACE("DCAM: next %d y 0x%x uv 0x%x \n", path->output_frame_count, frame.yaddr, frame.uaddr);
-	REG_WR(yuv_reg[0], frame.yaddr);
-	if (((DCAM_YUV400 > path->output_format) && (DCAM_PATH_IDX_0 != path_index)) ||
-			((DCAM_OUTPUT_YUV420 == path->output_format) && (DCAM_PATH_IDX_0 == path_index))) {
-		REG_WR(yuv_reg[1], frame.uaddr);
-		if (DCAM_YUV420_3FRAME == path->output_format) {
-			REG_WR(yuv_reg[2], frame.vaddr);
-		}
-	}
-	dcam_frame_lock(&frame);
-	if (0 == _dcam_frame_enqueue(p_heap, &frame)) {
+	if (frame.yaddr == 0x0 || frame.uaddr == 0x0) {
+		printk("DCAM: error addr y 0x%x uv 0x%x\n", frame.yaddr, frame.uaddr);
+		rtn = DCAM_RTN_PATH_NO_MEM;
 	} else {
-		dcam_frame_unlock(&frame);
-		rtn = DCAM_RTN_PATH_FRAME_LOCKED;
+		REG_WR(yuv_reg[0], frame.yaddr);
+		if (((DCAM_YUV400 > path->output_format) && (DCAM_PATH_IDX_0 != path_index)) ||
+				((DCAM_OUTPUT_YUV420 == path->output_format) && (DCAM_PATH_IDX_0 == path_index))) {
+			REG_WR(yuv_reg[1], frame.uaddr);
+			if (DCAM_YUV420_3FRAME == path->output_format) {
+				REG_WR(yuv_reg[2], frame.vaddr);
+			}
+		}
+		dcam_frame_lock(&frame);
+		if (0 == _dcam_frame_enqueue(p_heap, &frame)) {
+		} else {
+			dcam_frame_unlock(&frame);
+			rtn = DCAM_RTN_PATH_FRAME_LOCKED;
+		}
 	}
 
 	return -rtn;
@@ -4344,9 +4353,10 @@ LOCAL void    _dcam_path2_sof(void)
 	DCAM_TRACE("DCAM: 2 sof done \n");
 
 	if (atomic_read(&s_resize_flag)) {
-		printk("DCAM: path 2  sof, review now \n");
+		DCAM_TRACE("DCAM: path 2  sof, review now \n");
 	} else {
 		if (DCAM_ADDR_INVALID(s_p_dcam_mod)) {
+			printk("DCAM: path 2  sof, invalid address\n");
 			return;
 		}
 
@@ -4460,7 +4470,7 @@ LOCAL void _dcam_internal_deinit(void)
 
 	spin_lock_irqsave(&dcam_mod_lock, flag);
 	if (DCAM_ADDR_INVALID(s_p_dcam_mod)) {
-		printk("DCAM: Invalid addr, 0x%x", (uint32_t)s_p_dcam_mod);
+		printk("DCAM: Invalid addr, 0x%x\n", (uint32_t)s_p_dcam_mod);
 	} else {
 		vfree(s_p_dcam_mod);
 		s_p_dcam_mod = NULL;

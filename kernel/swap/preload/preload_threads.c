@@ -257,14 +257,14 @@ get_call_type_done:
 	return ret;
 }
 
-int preload_threads_get_drop(struct task_struct *task)
+int preload_threads_get_drop(struct task_struct *task, bool *drop)
 {
 	struct thread_slot *slot;
 	int ret = 0;
 
 	slot = __get_task_slot(task);
 	if (slot != NULL) {
-		ret = (int) slot->drop;
+		*drop = slot->drop;
 		goto get_drop_done;
 	}
 

@@ -28,6 +28,7 @@
 #include <linux/battery/sec_fuelgauge.h>
 #include <linux/sprd_battery_common.h>
 
+#define SPRDFGU_TEMP_COMP_SOC
 int sprdbat_interpolate(int x, int n, struct sprdbat_table_data *tab)
 {
 	int index;
@@ -92,6 +93,8 @@ static void print_pdata(struct sprd_battery_platform_data *pdata)
 }
 
 static uint32_t init_flag = 0;
+static uint32_t init_temp_flag = 0;
+
 #define SPRDBAT_ONE_PERCENT_TIME   (40)
 #define SPRDBAT_AVOID_JUMPING_TEMI  (SPRDBAT_ONE_PERCENT_TIME)
 
@@ -125,6 +128,11 @@ static uint32_t sprdbat_update_capacty(void)
 	uint32_t period_time = 0;
 	struct timespec cur_time;
 	union power_supply_propval value;
+	int temp_degree;
+	union power_supply_propval temp_value;
+
+	psy_do_property("battery", get, POWER_SUPPLY_PROP_TEMP, temp_value);
+	temp_degree = temp_value.intval / 10;
 
 	psy_do_property("battery", get, POWER_SUPPLY_PROP_STATUS, value);
 
@@ -135,10 +143,19 @@ static uint32_t sprdbat_update_capacty(void)
 
 	pr_info("fgu_capacity: = %d,flush_time: = %d,period_time:=%d\n",
 		      fgu_capacity, flush_time, period_time);
+	if ((!init_temp_flag) && (temp_degree < 16)) {
+	  pr_info("temp init skip\n");
+	  init_temp_flag = 1;
+	 } else {
 
 	switch (value.intval) {
 	case POWER_SUPPLY_STATUS_CHARGING:
+#ifdef SPRDFGU_TEMP_COMP_SOC
+		if ((fgu_capacity < update_capacity) && ((temp_degree > 15) || \
+			(update_capacity >= 2))) {
+#else
 		if (fgu_capacity < update_capacity) {
+#endif
 			if (sprdfgu_read_batcurrent() > 0) {
 				pr_info("avoid vol jumping\n");
 			fgu_capacity = update_capacity;
@@ -217,7 +234,7 @@ static uint32_t sprdbat_update_capacty(void)
 	default:
 		break;
 	}
-
+	 	}
 	if (fgu_capacity != update_capacity) {
 		update_capacity = fgu_capacity;
 		sprdbat_update_capacity_time = cur_time.tv_sec;
@@ -337,7 +354,7 @@ bool sec_hal_fg_get_property(fuelgauge_variable_t * fg_var,
 	default:
 		return false;
 	}
-	pr_info("sec_hal_fg_get_property-%d,val->intval = %d\n", psp,
+	pr_debug("sec_hal_fg_get_property-%d,val->intval = %d\n", psp,
 		val->intval);
 	return true;
 }

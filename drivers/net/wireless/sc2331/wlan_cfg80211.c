@@ -825,6 +825,8 @@ static int wlan_cfg80211_scan(struct wiphy *wiphy,
 	} else {
 		printkd("%s request->ie_len is 0\n", __func__);
 	}
+
+	vif->cfg80211.hidden_ssid_scan = false;
 	n = min(request->n_ssids, 9);
 	if (n) {
 		data = kzalloc(512, GFP_KERNEL);
@@ -845,6 +847,8 @@ static int wlan_cfg80211_scan(struct wiphy *wiphy,
 			scan_ssids = (struct wlan_cmd_scan_ssid *)
 			    (data + scan_ssids_len);
 		}
+
+		vif->cfg80211.hidden_ssid_scan = true;
 	}
 
 	n = min(request->n_channels, 14);
@@ -1730,7 +1734,7 @@ void cfg80211_report_disconnect_done(unsigned char vif_id, unsigned char *pData,
 static void wlan_scan_timeout(unsigned long data)
 {
 	wlan_vif_t *vif = (wlan_vif_t *) data;
-
+	vif->cfg80211.hidden_ssid_scan = false;
 	printkd("%s()\n", __func__);
 	if (vif->cfg80211.scan_request
 	    && (atomic_add_unless(&vif->cfg80211.scan_status, 1, 1) == 1)) {
@@ -1936,6 +1940,12 @@ void cfg80211_report_scan_frame(unsigned char vif_id, unsigned char *pData,
 		   __LINE__);
 		   return;
 		   } */
+		if (vif->cfg80211.hidden_ssid_scan && (0 == strlen(ssid))) {
+			printkd("SSID len is 0\n");
+			return;
+		}
+
+
 		if (1024 < event->frame_len) {
 			printkd("[%s %d][line %d err]\n", __func__, vif_id,
 				__LINE__);
@@ -2033,7 +2043,7 @@ void cfg80211_report_scan_frame(unsigned char vif_id, unsigned char *pData,
 		    offsetof(struct ieee80211_mgmt, u.probe_resp.variable);
 		signal = scan_buf->signal;
 		signal = signal * 100;
-		wiphy_info(wiphy, "   %s, " MACSTR ", channel %2u, signal %d\n",
+		wiphy_dbg(wiphy, "   %s, " MACSTR ", channel %2u, signal %d\n",
 			   ieee80211_is_probe_resp(mgmt->frame_control)
 			   ? "proberesp" : "beacon   ",
 			   MAC2STR(mgmt->bssid), scan_buf->channel,
@@ -2074,6 +2084,7 @@ void cfg80211_report_scan_frame(unsigned char vif_id, unsigned char *pData,
 	del_timer_sync(&vif->cfg80211.scan_timeout);
 	cfg80211_scan_done(vif->cfg80211.scan_request, false);
 	vif->cfg80211.scan_request = NULL;
+	vif->cfg80211.hidden_ssid_scan = false;
 #ifdef CONFIG_HAS_WAKELOCK
 	if (vif->cfg80211.scan_done_lock.link.next != LIST_POISON1
 	    && vif->cfg80211.scan_done_lock.link.prev != LIST_POISON2)

@@ -539,8 +539,6 @@ static int sec_chg_set_property(struct power_supply *psy,
 			charger->is_charging = false;
 			charger->nchgen = true;
 			charger->aicl_on = false;
-			SM5701_set_bstout(SM5701_BSTOUT_4P5);
-			SM5701_clear_operationmode(SM5701_OPERATIONMODE_OTG_ON);
 			pr_info("%s : Disable Charger, Battery Supply!\n", __func__);
 			// nCHG_EN is logic low so set 1 to disable charger
 			charger->is_fullcharged = false;
@@ -565,23 +563,9 @@ static int sec_chg_set_property(struct power_supply *psy,
 					[charger->cable_type].fast_charging_current;
 		}
 
-		pr_info("=============================================================\n");
-		SM5701_reg_read(charger->SM5701->i2c, SM5701_CHGCNTL1, &topoff_data);
-		pr_info("%s : SM5701_CHGCNTL1 (Top-off current) : 0x%02x\n",__func__, topoff_data);
-		SM5701_reg_read(charger->SM5701->i2c, SM5701_STATUS2, &stauts);
-		pr_info("%s: STATUS2 : %d\n", __func__, stauts); //SM : test
-		pr_info("=============================================================\n");
-
 		SM5701_operation_mode_function_control();
 		pr_info("%s : STATUS OF CHARGER ON(0)/OFF(1): %d\n", __func__, charger->nchgen);
 		SM5701_toggle_charger(charger, charger->is_charging);
-
-		pr_info("=============================================================\n");
-		SM5701_reg_read(charger->SM5701->i2c, SM5701_CHGCNTL1, &topoff_data);
-		pr_info("%s : SM5701_CHGCNTL1 (Top-off current) : 0x%02x\n",__func__, topoff_data);
-		SM5701_reg_read(charger->SM5701->i2c, SM5701_STATUS2, &stauts);
-		pr_info("%s: STATUS2 : %d\n", __func__, stauts); //SM : test
-		pr_info("=============================================================\n");
 
 		/* if battery full, only disable charging  */
 		if ((charger->status == POWER_SUPPLY_STATUS_CHARGING) ||
@@ -636,13 +620,6 @@ static int sec_chg_set_property(struct power_supply *psy,
 				charger->charging_current * charger->siop_level / 100;
 			SM5701_set_fastchg_current(
 				charger, charging_current);
-
-			pr_info("=============================================================\n");
-			SM5701_reg_read(charger->SM5701->i2c, SM5701_CHGCNTL1, &topoff_data);
-			pr_info("%s : SM5701_CHGCNTL1 (Top-off current) : 0x%02x\n",__func__, topoff_data);
-			SM5701_reg_read(charger->SM5701->i2c, SM5701_STATUS2, &stauts);
-			pr_info("%s: STATUS2 : %d\n", __func__, stauts); //SM : test
-			pr_info("=============================================================\n");
 		}
 		break;
 	/* val->intval : float voltage */

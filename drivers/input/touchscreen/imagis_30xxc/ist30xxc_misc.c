@@ -612,25 +612,6 @@ ssize_t ist30xx_scancnt_store(struct device *dev, struct device_attribute *attr,
 	return size;
 }
 
-extern int timer_period_ms;
-/* sysfs: /sys/class/touch/sys/timerms */
-ssize_t ist30xx_timerms_store(struct device *dev, struct device_attribute *attr,
-				const char *buf, size_t size)
-{
-	int ms;
-
-	sscanf(buf, "%d", &ms);
-
-	if (unlikely((ms < 0) || (ms > 10000)))
-		return size;
-
-	tsp_info("Timer period ms: %dms\n", ms);
-
-	timer_period_ms = ms;
-
-	return size;
-}
-
 extern int ist30xx_dbg_level;
 /* sysfs: /sys/class/touch/sys/printk */
 ssize_t ist30xx_printk_store(struct device *dev, struct device_attribute *attr,
@@ -1233,7 +1214,7 @@ ssize_t tunes_adb_show(struct device *dev, struct device_attribute *attr,
 	return size;
 }
 
-#if IST30XX_ALGORITHM_MODE
+#ifdef IST30XX_ALGORITHM_MODE
 /* sysfs: /sys/class/touch/tunes/algorithm */
 extern u32 ist30xx_algr_addr, ist30xx_algr_size;
 ssize_t ist30xx_algr_store(struct device *dev, struct device_attribute *attr,
@@ -1385,7 +1366,6 @@ static DEVICE_ATTR(tsp_power_on, S_IRUGO, ist30xx_power_on_show, NULL);
 static DEVICE_ATTR(tsp_power_off, S_IRUGO, ist30xx_power_off_show, NULL);
 static DEVICE_ATTR(errcnt, S_IWUSR | S_IWGRP, NULL, ist30xx_errcnt_store);
 static DEVICE_ATTR(scancnt, S_IWUSR | S_IWGRP, NULL, ist30xx_scancnt_store);
-static DEVICE_ATTR(timerms, S_IWUSR | S_IWGRP, NULL, ist30xx_timerms_store);
 static DEVICE_ATTR(report_rate, S_IWUSR | S_IWGRP, NULL, ist30xx_touch_rate_store);
 static DEVICE_ATTR(idle_rate, S_IWUSR | S_IWGRP, NULL, ist30xx_idle_scan_rate_store);
 static DEVICE_ATTR(mode_ta, S_IWUSR | S_IWGRP, NULL, ist30xx_ta_mode_store);
@@ -1397,7 +1377,7 @@ static DEVICE_ATTR(node_info, S_IRUGO, tunes_node_info_show, NULL);
 static DEVICE_ATTR(regcmd, S_IRUGO | S_IWUSR | S_IWGRP, tunes_regcmd_show, tunes_regcmd_store);
 static DEVICE_ATTR(reg, S_IRUGO | S_IWUSR | S_IWGRP, tunes_reg_show, tunes_reg_store);
 static DEVICE_ATTR(adb, S_IRUGO | S_IWUSR | S_IWGRP, tunes_adb_show, tunes_adb_store);
-#if IST30XX_ALGORITHM_MODE
+#ifdef IST30XX_ALGORITHM_MODE
 static DEVICE_ATTR(algorithm, S_IRUGO | S_IWUSR | S_IWGRP, ist30xx_algr_show, ist30xx_algr_store);
 #endif
 static DEVICE_ATTR(intr_debug, S_IRUGO | S_IWUSR | S_IWGRP, intr_debug_show, intr_debug_store);
@@ -1431,7 +1411,6 @@ static struct attribute *sys_attributes[] = {
 	&dev_attr_tsp_power_off.attr,
 	&dev_attr_errcnt.attr,
 	&dev_attr_scancnt.attr,
-	&dev_attr_timerms.attr,
 	&dev_attr_report_rate.attr,
 	&dev_attr_idle_rate.attr,
 	&dev_attr_mode_ta.attr,
@@ -1446,7 +1425,7 @@ static struct attribute *tunes_attributes[] = {
 	&dev_attr_regcmd.attr,
 	&dev_attr_reg.attr,
 	&dev_attr_adb.attr,
-#if IST30XX_ALGORITHM_MODE
+#ifdef IST30XX_ALGORITHM_MODE
 	&dev_attr_algorithm.attr,
 #endif
 	&dev_attr_intr_debug.attr,

@@ -970,4 +970,8 @@ void l2cap_conn_put(struct l2cap_conn *conn);
 int l2cap_register_user(struct l2cap_conn *conn, struct l2cap_user *user);
 void l2cap_unregister_user(struct l2cap_conn *conn, struct l2cap_user *user);
 
+#ifdef CONFIG_TIZEN_WIP
+int l2cap_update_connection_param(struct l2cap_conn *conn, u16 min, u16 max,
+				  u16 latency, u16 to_multiplier);
+#endif
 #endif /* __L2CAP_H */

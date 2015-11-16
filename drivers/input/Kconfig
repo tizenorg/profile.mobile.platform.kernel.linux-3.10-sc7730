@@ -192,16 +192,6 @@ config INPUT_KEYCOMBO
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called keycombo.
-
-config INPUT_SECBRIDGE
-        default n
-        bool "Enable input bridge support"
-        help
-          Say Y here if you want to enable input bridge.
-          This is useful for enabling different operation
-          according to key combinations.
-          If unsure, say N.
-
 comment "Input Device Drivers"
 
 source "drivers/input/keyboard/Kconfig"

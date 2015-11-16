@@ -670,7 +670,8 @@ static bool sec_bat_check_recharge(struct sec_battery_info *battery)
 {
 #if defined(CONFIG_BATTERY_SWELLING)
 	if (battery->swelling_mode == SEC_BATTERY_HIGH_SWELLING_MODE) {
-		if (battery->charging_mode == SEC_BATTERY_CHARGING_NONE) {
+		if ((battery->charging_mode == SEC_BATTERY_CHARGING_NONE) ||
+			(battery->charging_mode == SEC_BATTERY_CHARGING_ABS)) {
 			if ((battery->pdata->recharge_condition_type &
 						SEC_BATTERY_RECHARGE_CONDITION_VCELL) &&
 					(battery->voltage_now <=
@@ -678,11 +679,13 @@ static bool sec_bat_check_recharge(struct sec_battery_info *battery)
 				dev_info(battery->dev,
 						"%s: Re-charging by VCELL in high swelling mode(%d)\n",
 						__func__, battery->voltage_now);
+				battery->swelling_block = false;
 				goto check_recharge_check_count;
 			}
 		}
 	} else if (battery->swelling_mode == SEC_BATTERY_LOW_SWELLING_MODE) {
-		if (battery->charging_mode == SEC_BATTERY_CHARGING_NONE) {
+		if ((battery->charging_mode == SEC_BATTERY_CHARGING_NONE) ||
+			(battery->charging_mode == SEC_BATTERY_CHARGING_ABS)) {
 			if ((battery->pdata->recharge_condition_type &
 						SEC_BATTERY_RECHARGE_CONDITION_VCELL) &&
 					(battery->voltage_now <=
@@ -690,6 +693,7 @@ static bool sec_bat_check_recharge(struct sec_battery_info *battery)
 				dev_info(battery->dev,
 						"%s: Re-charging by VCELL in low swelling mode(%d)\n",
 						__func__, battery->voltage_now);
+				battery->swelling_block = false;
 				goto check_recharge_check_count;
 			}
 		}
@@ -923,14 +927,23 @@ static void sec_bat_swelling_check(struct sec_battery_info *battery, int tempera
 {
 	union power_supply_propval val;
 
-	pr_info("%s: status(%d), swell_mode(%d), temp(%d)\n",
-			__func__, battery->status, battery->swelling_mode, temperature);
+	pr_info("%s: status(%d), swell_mode(%d), temp(%d), vnow(%d), block(%d)\n",
+			__func__, battery->status, battery->swelling_mode,
+			temperature, battery->voltage_now, battery->swelling_block);
 
 	/* swelling_mode
 	 *		under voltage over voltage, battery missing  */
 	if (battery->status == POWER_SUPPLY_STATUS_DISCHARGING) {
 		pr_info("%s: DISCHARGING. stop swelling mode\n", __func__);
 		battery->swelling_mode = SEC_BATTERY_NORMAL_MODE;
+		battery->swelling_block = false;
+		if (battery->swelling_max_vbat == 4200) {
+			/* restore float voltage */
+			val.intval = battery->pdata->chg_float_voltage;
+			psy_do_property(battery->pdata->charger_name, set,
+				POWER_SUPPLY_PROP_VOLTAGE_MAX, val);
+			battery->swelling_max_vbat = val.intval;
+		}
 		goto skip_swelling_chek;
 	}
 
@@ -940,8 +953,13 @@ static void sec_bat_swelling_check(struct sec_battery_info *battery, int tempera
 				if (temperature >= battery->swelling_temp_dischg_threshold &&
 					battery->voltage_now > 4235) {
 						pr_info("%s: self discharge mode start.\n", __func__);
-						//battery->status = POWER_SUPPLY_STATUS_NOT_CHARGING;
-						//sec_bat_set_charge(battery, false);
+						if ((battery->voltage_now > 4235) &&
+							(battery->swelling_block == false)) {
+							battery->charging_mode = SEC_BATTERY_CHARGING_NONE;
+							sec_bat_set_charge(battery, false);
+							battery->swelling_block = true;
+						}
+
 						battery->swelling_mode = SEC_BATTERY_DISCHG_MODE;
 #if defined(CONFIG_BATTERY_DISCHG_IC)
 						/*enable discharge */
@@ -950,18 +968,38 @@ static void sec_bat_swelling_check(struct sec_battery_info *battery, int tempera
 #endif
 				} else {
 					pr_info("%s: high swelling mode start.\n", __func__);
-					//battery->status = POWER_SUPPLY_STATUS_NOT_CHARGING;
-					//sec_bat_set_charge(battery, false);
+					if (battery->voltage_now < 4200) {
+						/* change to 4.20V float voltage */
+						val.intval = 4200;
+						psy_do_property(battery->pdata->charger_name, set,
+							POWER_SUPPLY_PROP_VOLTAGE_MAX, val);
+						battery->swelling_max_vbat = val.intval;
+					} else if ((battery->voltage_now > 4235) &&
+						(battery->swelling_block == false)) {
+							battery->charging_mode = SEC_BATTERY_CHARGING_NONE;
+							sec_bat_set_charge(battery, false);
+							battery->swelling_block = true;
+					}
+
 					battery->swelling_mode = SEC_BATTERY_HIGH_SWELLING_MODE;
-					//battery->swelling_block = true;
 					battery->swelling_full_check_cnt = 0;
 				}
 			} else if (temperature <= battery->swelling_temp_low_threshold) {
 					pr_info("%s: low swelling mode start.\n", __func__);
-					//battery->status = POWER_SUPPLY_STATUS_NOT_CHARGING;
-					//sec_bat_set_charge(battery, false);
+					if (battery->voltage_now < 4200) {
+						/* change to 4.20V float voltage */
+						val.intval = 4200;
+						psy_do_property(battery->pdata->charger_name, set,
+							POWER_SUPPLY_PROP_VOLTAGE_MAX, val);
+						battery->swelling_max_vbat = val.intval;
+					} else if ((battery->voltage_now > 4235) &&
+						(battery->swelling_block == false)) {
+							battery->charging_mode = SEC_BATTERY_CHARGING_NONE;
+							sec_bat_set_charge(battery, false);
+							battery->swelling_block = true;
+					}
+
 					battery->swelling_mode = SEC_BATTERY_LOW_SWELLING_MODE;
-					//battery->swelling_block = true;
 					battery->swelling_full_check_cnt = 0;
 			}
 			break;
@@ -974,17 +1012,22 @@ static void sec_bat_swelling_check(struct sec_battery_info *battery, int tempera
 				psy_do_property(battery->pdata->charger_name, set,
 					POWER_SUPPLY_PROP_VOLTAGE_MAX, val);
 				battery->swelling_max_vbat = val.intval;
+				battery->charging_mode = SEC_BATTERY_CHARGING_1ST;
+				sec_bat_set_charge(battery, true);
+				battery->swelling_block = false;
 
-				//battery->status = POWER_SUPPLY_STATUS_CHARGING;
-				//sec_bat_set_charge(battery, true);
-				//battery->swelling_block = false;
 				battery->swelling_mode = SEC_BATTERY_NORMAL_MODE;
 			} else if (temperature >= battery->swelling_temp_high_recovery) {
 				if (temperature >= battery->swelling_temp_dischg_threshold &&
 					battery->voltage_now > 4235) {
 						pr_info("%s: self discharge mode start.\n", __func__);
-						//battery->status = POWER_SUPPLY_STATUS_NOT_CHARGING;
-						//sec_bat_set_charge(battery, false);
+						if ((battery->voltage_now > 4235) &&
+							(battery->swelling_block == false)) {
+							battery->charging_mode = SEC_BATTERY_CHARGING_NONE;
+							sec_bat_set_charge(battery, false);
+							battery->swelling_block = true;
+						}
+
 						battery->swelling_mode = SEC_BATTERY_DISCHG_MODE;
 #if defined(CONFIG_BATTERY_DISCHG_IC)
 						/*enable discharge */
@@ -992,12 +1035,18 @@ static void sec_bat_swelling_check(struct sec_battery_info *battery, int tempera
 						pr_info ("%s: enable discharge\n", __func__);
 #endif
 				} else {
-						if (battery->voltage_now < 4200) {
+						if ((battery->voltage_now < 4200) &&
+							(battery->swelling_max_vbat != 4200)) {
 							/* change to 4.20V float voltage */
 							val.intval = 4200;
 							psy_do_property(battery->pdata->charger_name, set,
 								POWER_SUPPLY_PROP_VOLTAGE_MAX, val);
 							battery->swelling_max_vbat = val.intval;
+						} else if ((battery->voltage_now > 4235) &&
+								(battery->swelling_block == false)) {
+									battery->charging_mode = SEC_BATTERY_CHARGING_NONE;
+									sec_bat_set_charge(battery, false);
+									battery->swelling_block = true;
 						}
 					pr_info("%s: high swelling mode. Vbatt(%d)\n",
 						__func__, battery->voltage_now);
@@ -1013,18 +1062,24 @@ static void sec_bat_swelling_check(struct sec_battery_info *battery, int tempera
 				psy_do_property(battery->pdata->charger_name, set,
 					POWER_SUPPLY_PROP_VOLTAGE_MAX, val);
 				battery->swelling_max_vbat = val.intval;
+				battery->charging_mode = SEC_BATTERY_CHARGING_1ST;
+				sec_bat_set_charge(battery, true);
+				battery->swelling_block = false;
 
-				//battery->status = POWER_SUPPLY_STATUS_CHARGING;
-				//sec_bat_set_charge(battery, true);
-				//battery->swelling_block = false;
 				battery->swelling_mode = SEC_BATTERY_NORMAL_MODE;
 			} else if (temperature <= battery->swelling_temp_low_recovery) {
-					if (battery->voltage_now < 4200) {
+					if ((battery->voltage_now < 4200) &&
+						(battery->swelling_max_vbat != 4200)) {
 						/* change to 4.20V float voltage */
 						val.intval = 4200;
 						psy_do_property(battery->pdata->charger_name, set,
 							POWER_SUPPLY_PROP_VOLTAGE_MAX, val);
 						battery->swelling_max_vbat = val.intval;
+					} else if ((battery->voltage_now > 4235) &&
+						(battery->swelling_block == false)) {
+							battery->charging_mode = SEC_BATTERY_CHARGING_NONE;
+							sec_bat_set_charge(battery, false);
+							battery->swelling_block = true;
 					}
 					/* change to 0.5C charging current */
 #if 0 /* Orbis charging current is under 0.5C, thus no need to set */
@@ -1531,6 +1586,8 @@ static bool sec_bat_check_fullcharged(
 	else
 		full_check_type = battery->pdata->full_check_type_2nd;
 
+	pr_info("%s:full check type[%d], current_avg[%d]", __func__,
+		full_check_type, battery->current_avg);
 	switch (full_check_type) {
 	case SEC_BATTERY_FULLCHARGED_ADC:
 		current_adc =
@@ -1573,7 +1630,7 @@ static bool sec_bat_check_fullcharged(
 			battery->pdata->charging_current[
 			battery->cable_type].full_check_current_2nd))) {
 				battery->full_check_cnt++;
-				dev_dbg(battery->dev,
+				dev_info(battery->dev,
 				"%s: Full Check Current (%d)\n",
 				__func__,
 				battery->full_check_cnt);
@@ -1690,6 +1747,7 @@ static void sec_bat_do_fullcharged(
 		battery->charging_mode = SEC_BATTERY_CHARGING_NONE;
 		battery->is_recharging = false;
 		sec_bat_set_charge(battery, false);
+		battery->swelling_block = true;
 		pr_info("%s: stop charging (full) in swelling mode[%d]",
 			__func__, battery->swelling_mode);
 	} else
@@ -2269,6 +2327,7 @@ static void sec_bat_cable_work(struct work_struct *work)
 	wake_lock(&battery->monitor_wake_lock);
 	queue_delayed_work(battery->monitor_wqueue, &battery->monitor_work,
 					msecs_to_jiffies(500));
+	power_supply_changed(&battery->psy_bat);
 end_of_cable_work:
 	wake_unlock(&battery->cable_wake_lock);
 	dev_dbg(battery->dev, "%s: End\n", __func__);
@@ -2943,9 +3002,12 @@ static int sec_bat_set_property(struct power_supply *psy,
 				current_cable_type = POWER_SUPPLY_TYPE_WIRELESS;
 
 			if (current_cable_type == POWER_SUPPLY_TYPE_BATTERY) {
+				wake_lock(&battery->cable_wake_lock);
 				value.intval = current_cable_type;
 				psy_do_property(battery->pdata->charger_name,
 					set,POWER_SUPPLY_PROP_ONLINE, value);
+				queue_work(battery->monitor_wqueue,
+					&battery->cable_work);
 			}
 		}
 		dev_info(battery->dev,
@@ -3882,7 +3944,7 @@ static int sec_battery_probe(struct platform_device *pdev)
 
 #if defined(CONFIG_BATTERY_SWELLING)
 	battery->swelling_mode = SEC_BATTERY_NORMAL_MODE;
-	battery->swelling_max_vbat = 4350;
+	battery->swelling_max_vbat = 4340;
 	battery->swelling_temp_dischg_threshold = BATT_SWELLING_DISCHG_TEMP;
 	battery->swelling_temp_dischg_recovery = BATT_SWELLING_DISCHG_TEMP_RECOV;
 	battery->swelling_temp_high_threshold = BATT_SWELLING_HIGH_TEMP_BLOCK;
@@ -3914,6 +3976,7 @@ static int sec_battery_probe(struct platform_device *pdev)
 		pdata->temp_low_recovery_normal;
 	battery->temp_low_threshold =
 		pdata->temp_low_threshold_normal;
+	battery->temperature = 255;
 
 	battery->charging_mode = SEC_BATTERY_CHARGING_NONE;
 	battery->is_recharging = false;

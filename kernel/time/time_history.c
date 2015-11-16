@@ -7,6 +7,10 @@
 #include <linux/seq_file.h>
 #include <linux/spinlock.h>
 
+#ifdef CONFIG_SLEEP_MONITOR
+#include <linux/power/sleep_monitor.h>
+#endif
+
 #ifdef CONFIG_SLP_KERNEL_ENG
 	#define TIME_LOG_MAX	(1000)
 	#define ALARM_LOG_MAX	(3000)
@@ -84,6 +88,152 @@ static struct time_history th_ctxt = {
 	.timezone_id = "UTC",
 	.nitz_update = -1,
 };
+
+static DEFINE_SEQLOCK(th_seq_lock);
+
+static struct timespec th_old_system;
+static struct rtc_time th_old_tm;
+
+#ifdef CONFIG_RTC_CLASS
+static struct rtc_device *th_rtcdev;
+static DEFINE_SPINLOCK(th_rtcdev_lock);
+
+struct rtc_device *timeh_get_rtcdev(void)
+{
+	unsigned long flags;
+	struct rtc_device *ret;
+
+	spin_lock_irqsave(&th_rtcdev_lock, flags);
+	ret = th_rtcdev;
+	spin_unlock_irqrestore(&th_rtcdev_lock, flags);
+
+	return ret;
+}
+
+static int timeh_rtc_add_device(struct device *dev,
+				struct class_interface *class_intf)
+{
+	unsigned long flags;
+	struct rtc_device *rtc = to_rtc_device(dev);
+
+	if (th_rtcdev)
+		return -EBUSY;
+
+	if (!rtc->ops->read_time)
+		return -1;
+
+	if (strcmp(dev_name(dev),
+			CONFIG_RTC_HCTOSYS_DEVICE) != 0) {
+		pr_err("Miss-matched rtc(%s) for timeh\n", dev_name(dev));
+		return -1;
+	}
+
+	spin_lock_irqsave(&th_rtcdev_lock, flags);
+	if (!th_rtcdev) {
+		th_rtcdev = rtc;
+		/* hold a reference so it doesn't go away */
+		get_device(dev);
+	}
+	spin_unlock_irqrestore(&th_rtcdev_lock, flags);
+	return 0;
+}
+
+static struct class_interface timeh_rtc_interface = {
+	.add_dev = &timeh_rtc_add_device,
+};
+
+static int timeh_rtc_interface_setup(void)
+{
+	timeh_rtc_interface.class = rtc_class;
+	return class_interface_register(&timeh_rtc_interface);
+}
+
+#else
+#define th_rtcdev (NULL)
+
+struct rtc_device *timeh_get_rtcdev(void)
+{
+	return NULL;
+}
+
+static inline int timeh_rtc_interface_setup(void) { return 0; }
+#endif
+
+#ifdef CONFIG_SLEEP_MONITOR
+static int timeh_get_sys_time_cb(void *priv,
+		unsigned int *raw_val, int chk_lv, int caller_type)
+{
+	struct timespec ts;
+
+	ts = current_kernel_time();
+	*raw_val = ts.tv_sec;
+
+	return 0;
+}
+
+static struct sleep_monitor_ops timeh_sys_time_ops = {
+	 .read_cb_func = timeh_get_sys_time_cb,
+};
+
+static int timeh_get_rtc_time_cb(void *priv,
+		unsigned int *raw_val, int chk_lv, int caller_type)
+{
+	struct rtc_time tm;
+	struct rtc_device *rtc_dev;
+	struct timespec ts, curr_syst, delta_syst;
+	int err = 0;
+	unsigned int seq;
+
+	rtc_dev = timeh_get_rtcdev();
+	if (!rtc_dev)
+		return -ENODEV;
+
+	if (chk_lv == SLEEP_MONITOR_CHECK_SOFT) {
+		do {
+			seq = read_seqbegin(&th_seq_lock);
+			curr_syst = current_kernel_time();
+			delta_syst.tv_sec = curr_syst.tv_sec - th_old_system.tv_sec;
+			if (delta_syst.tv_sec < 0) {
+				pr_warn("%s:system time back-travel\n", __func__);
+				return -EINVAL;
+			}
+			rtc_tm_to_time(&th_old_tm, &ts.tv_sec);
+			ts.tv_sec += delta_syst.tv_sec;
+		} while (read_seqretry(&th_seq_lock, seq));
+	} else {
+		err = rtc_read_time(rtc_dev, &tm);
+		if (err)
+			return err;
+		rtc_tm_to_time(&tm, &ts.tv_sec);
+	}
+
+	*raw_val = ts.tv_sec;
+	return 0;
+}
+
+static struct sleep_monitor_ops timeh_rtc_time_ops = {
+	 .read_cb_func = timeh_get_rtc_time_cb,
+};
+
+static void timeh_sleep_monitor_cb_setup(void)
+{
+	int err;
+
+	err = sleep_monitor_register_ops(NULL,
+			&timeh_sys_time_ops, SLEEP_MONITOR_SYS_TIME);
+	if (err)
+		pr_err("%s:failed SYSTIME sm_cb(%d)\n",
+				__func__, err);
+
+	err = sleep_monitor_register_ops(NULL,
+			&timeh_rtc_time_ops, SLEEP_MONITOR_RTC_TIME);
+	if (err)
+		pr_err("%s:failed RTCTIME sm_cb(%d)\n",
+				__func__, err);
+}
+#else
+static inline void timeh_sleep_monitor_cb_setup(void) { }
+#endif
 
 static bool is_realtime(struct timespec *time)
 {
@@ -839,11 +989,16 @@ static int __init time_history_init(void)
 		return -ENOMEM;
 	}
 
+	if (timeh_rtc_interface_setup())
+		pr_err("Failed to setup rtc intf for timeh\n");
+
 	spin_lock_init(&th_ctxt.lock);
 
 	time_log.buf[0].history_idx  = ULLONG_MAX;
 	alarm_log.buf[0].history_idx = ULLONG_MAX;
 
+	timeh_sleep_monitor_cb_setup();
+
 	return 0;
 }
-arch_initcall(time_history_init);
+fs_initcall(time_history_init);

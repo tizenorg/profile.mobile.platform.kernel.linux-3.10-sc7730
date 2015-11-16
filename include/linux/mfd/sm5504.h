@@ -50,6 +50,7 @@ enum {
     MUIC_SM5504_CABLE_TYPE_INVALID, // Un-initialized
 
     MUIC_SM5504_CABLE_TYPE_OTG_WITH_VBUS,
+    MUIC_SM5504_CABLE_TYPE_SAMSUNG_PS,
 };
 
 typedef enum {
@@ -71,7 +72,9 @@ struct sm5504_platform_data {
     void (*uart_callback)(uint8_t attached);
     void (*otg_callback)(uint8_t attached);
     void (*jig_callback)(jig_type_t type, uint8_t attached);
-
+#ifdef CONFIG_MUIC_SUPPORT_PS_CABLE
+    void (*ps_cable_callback)(uint8_t attached);
+#endif
 };
 
 bool sm5504_get_otg_status(void);

@@ -112,10 +112,10 @@ static struct sci_pin_switch bt_iis_sys_sel_array[] = {
 };
 
 static struct sci_pin_switch iis_0_array[] = {
-	{"iis0_sys_sel", "ap_iis0", 0xc, 6, 2, 0},
-	{"iis0_sys_sel", "cp0_iis0", 0xc, 6, 2, 1},
-	{"iis0_sys_sel", "cp1_iis0", 0xc, 6, 2, 2},
-	{"iis0_sys_sel", "cp2_iis0", 0xc, 6, 2, 3},
+	{"iis0_sys_sel", "ap_iis0", 0xc, 6, 3, 0},
+	{"iis0_sys_sel", "cp0_iis0", 0xc, 6, 3, 1},
+	{"iis0_sys_sel", "cp1_iis0", 0xc, 6, 3, 2},
+	{"iis0_sys_sel", "cp2_iis0", 0xc, 6, 3, 3},
 	{"iis0_sys_sel", "vbc_iis0", 0xc, 6, 3, 4},
 };
 

@@ -50,15 +50,22 @@
 #define KERNEL_ONLY_CHIP_DOG 0
 #define KERNEL_WATCHDOG_FEEDER 1
 
-static int feed_period = 3; /* (secs) Default is 3 sec */
-static int ca7_irq_margin = 9; /* (secs) Default is 9 sec */
-static int ca7_margin = 10; /* (secs) Default is 10 sec */
-static int ap_margin = 12; /* (secs) Default is 12 sec */
+#define FEED_CNT 10 /* (counts) Default is 3 */
+#define FEED_PERIOD 3 /* (secs) Default is 3 sec */
+#define CA7_IRQ_MARGIN (FEED_PERIOD * FEED_CNT) /* (secs) Default is 9 sec */
+#define CA7_MARGIN (CA7_IRQ_MARGIN + 1) /* (secs) Default is 10 sec */
+#define AP_MARGIN (FEED_PERIOD * (FEED_CNT + 1)) /* (secs) Default is 12 sec */
 #if KERNEL_ONLY_CHIP_DOG
-static int chip_margin = 8; /* (secs) Default is 8 sec */
+#define CHIP_MARGIN (CA7_IRQ_MARGIN - 1) /* (secs) Default is 8 sec */
 #else
-static int chip_margin = 15; /* (secs) Default is 15 sec */
+#define CHIP_MARGIN (FEED_PERIOD * (FEED_CNT + 2)) /* (secs) Default is 15 sec */
 #endif
+
+static int feed_period = FEED_PERIOD;
+static int ca7_irq_margin = CA7_IRQ_MARGIN;
+static int ca7_margin = CA7_MARGIN;
+static int ap_margin = AP_MARGIN;
+static int chip_margin = CHIP_MARGIN;
 static unsigned long wdt_enabled;
 
 #define wdt_feed_all() FEED_ALL_WDG(chip_margin, ap_margin, ca7_margin, ca7_irq_margin)

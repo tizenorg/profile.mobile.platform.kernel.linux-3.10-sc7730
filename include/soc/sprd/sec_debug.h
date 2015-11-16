@@ -84,6 +84,8 @@ extern void sec_gaf_supply_rqinfo(unsigned short curr_offset,
 extern void sec_debug_save_pte(void *pte, int task_addr);
 
 int sec_debug_dump_stack(void);
+
+extern int get_sec_debug_level(void);
 #else
 static inline int sec_debug_init(void)
 {
@@ -128,6 +130,9 @@ void sec_debug_save_pte(void *pte, unsigned int faulttype);
 {
 }
 
+static inline int get_sec_debug_level(void)
+{
+}
 #endif
 
 struct worker;

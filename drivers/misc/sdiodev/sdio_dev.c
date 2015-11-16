@@ -232,7 +232,7 @@ void gpio_timer_handler(unsigned long data)
 	else
 	{
 		sleep_para.gpio_opt_tag = 0;
-		SDIOTRAN_ERR("gpio_opt_tag=0" );
+		SDIOTRAN_DEBUG("gpio_opt_tag=0" );
 	}
 }
 
@@ -1055,8 +1055,6 @@ static void marlin_workq(void)
 
 static irqreturn_t marlin_irq_handler(int irq, void * para)
 {
-	disable_irq_nosync(irq);
-
 	wake_lock(&marlin_wakelock);
 	irq_set_irq_type(irq,IRQF_TRIGGER_RISING);
 	marlin_sdio_req_cnt++;
@@ -1075,8 +1073,6 @@ static irqreturn_t marlin_irq_handler(int irq, void * para)
 		sch_sdio_req_cnt++;
 		schedule_work(&marlin_wq);
 	}
-	enable_irq(irq);
-
 	return IRQ_HANDLED;
 }
 
@@ -1224,7 +1220,6 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 {
 	struct timeval cur_time;
 	uint32 gpio_wake_status = 0, usec;
-	disable_irq_nosync(irq);
 	//irq_set_irq_type(irq,IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING);
 	gpio_wake_status = gpio_get_value(sdio_data->wake_ack);
 
@@ -1239,7 +1234,6 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 		//if(usec < 200)    //means invalid gpio value, so discard
 		{
 			SDIOTRAN_ERR("discard gpio%d irq", sdio_data->wake_ack);
-			enable_irq(irq);
 			return IRQ_HANDLED;
 		}
 		//SDIOTRAN_ERR("gpio%d %d-->%d\n",sdio_data->wake_ack, gpio_wake_status, 1 - gpio_wake_status );
@@ -1299,8 +1293,6 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 			}
 		}
 	}
-
-	enable_irq(irq);
 
 	return IRQ_HANDLED;
 }
@@ -1504,7 +1496,7 @@ static void marlin_sdio_remove(struct sdio_func *func)
 static int marlin_sdio_suspend(struct device *dev)
 {
 	unsigned long timeout;
-	SDIOTRAN_ERR("[%s]enter", __func__);
+	SDIOTRAN_DEBUG("[%s]enter", __func__);
 
 	atomic_set(&g_mgr_suspend.in_sdio_suspend, 1);
 	mutex_lock(&g_mgr_suspend.func_lock);
@@ -1698,7 +1690,7 @@ static int _marlin_gpio_init(void)
 		return ret;
 	}
 
-	SDIOTRAN_ERR("req GPIO_MARLIN_SDIO_READY = %d succ!!!",\
+	SDIOTRAN_DEBUG("req GPIO_MARLIN_SDIO_READY = %d succ!!!",\
 		sdio_data->io_ready);
 
 	return ret;
@@ -1708,7 +1700,7 @@ int marlin_sdio_init(void)
 {
 	int ret;
 
-	SDIOTRAN_ERR("entry");
+	SDIOTRAN_DEBUG("entry");
 	if(have_card == 1){
 		marlin_sdio_uninit();
 	}

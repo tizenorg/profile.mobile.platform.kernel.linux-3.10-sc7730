@@ -55,7 +55,7 @@
 #include "load_analyzer_sc7730.c"
 
 
-#if defined (CONFIG_SLP_CURRENT_MONITOR)
+#if defined (CONFIG_SLP_CURRENT_MONITOR) || defined(CONFIG_SLP_BUSY_LEVEL)
 #include "load_analyzer_current.c"
 #endif
 
@@ -625,12 +625,12 @@ static int __init system_load_analyzer_init(void)
 #endif
 
 #if defined(CONFIG_CHECK_NOT_CPUIDLE_CAUSE)
-		if (!debugfs_create_file("not_lpa_cause_check", 0644
+		if (!debugfs_create_file("not_lpa_cause_check", 0600
 			, d, NULL,&not_lpa_cause_check_fops))   \
 				pr_err("%s : debugfs_create_file, error\n", "not_lpa_cause_check");
 #endif
 
-		if (!debugfs_create_file("debug_value", 0644
+		if (!debugfs_create_file("debug_value", 0600
 			, d, NULL,&debug_value_fops))   \
 				pr_err("%s : debugfs_create_file, error\n", "debug_value");
 
@@ -654,25 +654,25 @@ static int __init system_load_analyzer_init(void)
 		debugfs_cpu_tester(d);
 #endif
 
-	if (!debugfs_create_file("saved_sched_num", 0644
+	if (!debugfs_create_file("saved_sched_num", 0600
 		, d, NULL,&saved_sched_num_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "saved_sched_num");
 
 #if defined(CONFIG_SLP_INPUT_REC)
-	if (!debugfs_create_file("saved_input_rec_num", 0644
+	if (!debugfs_create_file("saved_input_rec_num", 0600
 		, d, NULL,&saved_input_rec_num_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "saved_input_rec_num");
 #endif
 
-	if (!debugfs_create_file("saved_load_analyzer_data_num", 0644
+	if (!debugfs_create_file("saved_load_analyzer_data_num", 0600
 		, d, NULL,&saved_load_analyzer_data_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "saved_load_analyzer_data_num");
 
-	if (!debugfs_create_file("save_data_to_file", 0644
+	if (!debugfs_create_file("save_data_to_file", 0600
 		, d, NULL,&save_data_to_file_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "save_data_to_file");
 
-	if (!debugfs_create_file("load_data_from_file", 0644
+	if (!debugfs_create_file("load_data_from_file", 0600
 		, d, NULL,&load_data_from_file_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "load_data_from_file");
 

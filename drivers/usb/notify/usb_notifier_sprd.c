@@ -47,6 +47,14 @@ static void sec_cable_log(u8 cmd, uint32_t vbus_status)
 	case MUIC_OTG_DETACH_NOTI:
 		cmd_string = "MUIC_OTG_DETACH_NOTI";
 		break;
+#ifdef CONFIG_MUIC_SUPPORT_PS_CABLE
+	case MUIC_PS_ATTACH_NOTI:
+		cmd_string = "MUIC_PS_ATTACH_NOTI";
+		break;
+	case MUIC_PS_DETACH_NOTI:
+		cmd_string = "MUIC_PS_DETACH_NOTI";
+		break;
+#endif
 	case MUIC_VBUS_NOTI:
 		cmd_string = "MUIC_VBUS_NOTI";
 		break;
@@ -122,6 +130,14 @@ static int sec_cable_notifier(struct notifier_block *nb,
 	case MUIC_OTG_DETACH_NOTI:
 		send_otg_notify(o_notify, NOTIFY_EVENT_HOST, DETACH);
 		break;
+#ifdef CONFIG_MUIC_SUPPORT_PS_CABLE
+	case MUIC_PS_ATTACH_NOTI:
+		send_otg_notify(o_notify, NOTIFY_EVENT_DRIVE_VBUS, ATTACH);
+		break;
+	case MUIC_PS_DETACH_NOTI:
+		send_otg_notify(o_notify, NOTIFY_EVENT_DRIVE_VBUS, DETACH);
+		break;
+#endif
 	case MUIC_VBUS_NOTI:
 		send_otg_notify(o_notify, NOTIFY_EVENT_VBUSPOWER,
 				(bool)vbus_status);

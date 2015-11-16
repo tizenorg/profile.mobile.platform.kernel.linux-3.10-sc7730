@@ -11,6 +11,10 @@
 extern int unregister_muic_notifier(struct notifier_block *nb);
 extern int register_muic_notifier(struct notifier_block *nb);
 
+#ifdef CONFIG_MUIC_SUPPORT_PS_CABLE
+#define MUIC_PS_DETACH_NOTI		0x0006
+#define MUIC_PS_ATTACH_NOTI		0x0005
+#endif
 #define MUIC_OTG_DETACH_NOTI		0x0004
 #define MUIC_OTG_ATTACH_NOTI		0x0003
 #define MUIC_VBUS_NOTI				0x0002

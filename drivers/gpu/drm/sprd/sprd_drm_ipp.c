@@ -924,7 +924,7 @@ static void ipp_put_event(struct drm_sprd_ipp_cmd_node *c_node,
 
 	mutex_lock(&c_node->event_lock);
 	if (list_empty(&c_node->event_list)) {
-		DRM_INFO("%s:event_list is empty.\n", __func__);
+		DRM_DEBUG("%s:event_list is empty.\n", __func__);
 		goto out_unlock;
 	}
 
@@ -1227,8 +1227,6 @@ int sprd_drm_ipp_cmd_ctrl(struct drm_device *drm_dev, void *data,
 	struct drm_sprd_ipp_cmd_node *c_node;
 	struct drm_sprd_ipp_property	*property;
 	int ret;
-
-	DRM_INFO("%s\n", __func__);
 
 	if (!ctx) {
 		DRM_ERROR("invalid context.\n");

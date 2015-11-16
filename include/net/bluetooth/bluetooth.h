@@ -122,6 +122,16 @@ struct bt_voice {
 #define BT_SNDMTU		12
 #define BT_RCVMTU		13
 
+#ifdef CONFIG_TIZEN_WIP
+#define BT_LE_CONN_PARAM	14
+struct le_conn_param {
+	__u16 min;
+	__u16 max;
+	__u16 latency;
+	__u16 to_multiplier;
+};
+#endif
+
 __printf(1, 2)
 void bt_info(const char *fmt, ...);
 __printf(1, 2)

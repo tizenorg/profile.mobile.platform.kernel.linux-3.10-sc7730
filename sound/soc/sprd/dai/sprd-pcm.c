@@ -41,6 +41,7 @@
 #include <soc/sprd/dma.h>
 #include <soc/sprd/dma_reg.h>
 #include <soc/sprd/sprd-audio.h>
+#include <linux/wakelock.h>
 
 #include "sprd-asoc-common.h"
 #include "sprd-pcm.h"
@@ -52,14 +53,13 @@
 #define DMA_LINKLIST_CFG_NODE_SIZE  (sizeof(sprd_dma_desc))
 #endif
 
+static struct wake_lock pcm_open_wakelock;
 struct sprd_runtime_data {
 	int dma_addr_offset;
 	struct sprd_pcm_dma_params *params;
 	int uid_cid_map[2];
 	int int_pos_update[2];
 	sprd_dma_desc *dma_cfg_array;
-	dma_addr_t *dma_desc_array_orig;
-	dma_addr_t dma_desc_array_phys_orig;
 	dma_addr_t *dma_desc_array;
 	dma_addr_t dma_desc_array_phys;
 	int burst_len;
@@ -208,7 +208,7 @@ static inline int sprd_pcm_is_interleaved(struct snd_pcm_runtime *runtime)
 		runtime->access == SNDRV_PCM_ACCESS_MMAP_INTERLEAVED);
 }
 
-#define PCM_DIR_NAME(stream) (stream == SNDRV_PCM_STREAM_PLAYBACK ? "Playback" : "Captrue")
+#define PCM_DIR_NAME(stream) (stream == SNDRV_PCM_STREAM_PLAYBACK ? "Playback" : "Capture")
 
 static int sprd_pcm_open(struct snd_pcm_substream *substream)
 {
@@ -223,6 +223,7 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 	sp_asoc_pr_info("%s Open %s\n", sprd_dai_pcm_name(srtd->cpu_dai),
 			PCM_DIR_NAME(substream->stream));
 
+	wake_lock_timeout(&pcm_open_wakelock, msecs_to_jiffies(300));
 	if (sprd_is_i2s(srtd->cpu_dai)) {
 		snd_soc_set_runtime_hwparams(substream, &sprd_i2s_pcm_hardware);
 		config = srtd->cpu_dai->ac97_pdata;
@@ -275,14 +276,11 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 	    || !((substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		 && 0 == sprd_buffer_iram_backup())) {
 #endif
-		rtd->dma_desc_array_orig =
-		    dma_alloc_coherent(substream->pcm->card->dev,
-					   hw_chan * (PAGE_SIZE+32),
-					   &rtd->dma_desc_array_phys_orig,
+		rtd->dma_desc_array =
+		    dma_alloc_writecombine(substream->pcm->card->dev,
+					   hw_chan * PAGE_SIZE,
+					   &rtd->dma_desc_array_phys,
 					   GFP_KERNEL);
-
-		rtd->dma_desc_array_phys = (rtd->dma_desc_array_phys_orig+31)&(~31);
-		rtd->dma_desc_array  =	(unsigned int)rtd->dma_desc_array_orig + (rtd->dma_desc_array_phys - rtd->dma_desc_array_phys_orig);
 
 		if (atomic_inc_return(&lightsleep_refcnt) == 1)
 			sprd_lightsleep_disable("audio", 1);
@@ -296,15 +294,13 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 		    (void *)(s_iram_remap_base + runtime->hw.buffer_bytes_max);
 		rtd->dma_desc_array_phys =
 		    SPRD_IRAM_ALL_PHYS + runtime->hw.buffer_bytes_max;
-		rtd->dma_desc_array_orig = rtd->dma_desc_array;
-		rtd->dma_desc_array_phys_orig = rtd->dma_desc_array_phys;
 		rtd->buffer_in_iram = 1;
 		/*must clear the dma_desc_array first here */
 		memset(rtd->dma_desc_array, 0, (2 * SPRD_AUDIO_DMA_NODE_SIZE));
 	}
 #endif
 
-	if (!rtd->dma_desc_array_orig)
+	if (!rtd->dma_desc_array)
 		goto err1;
 
 	rtd->dma_cfg_array =
@@ -330,10 +326,10 @@ err2:
 		sprd_buffer_iram_restore();
 	else
 #endif
-		dma_free_coherent(substream->pcm->card->dev,
-				      hw_chan * (PAGE_SIZE+32),
-				      rtd->dma_desc_array_orig,
-				      rtd->dma_desc_array_phys_orig);
+		dma_free_writecombine(substream->pcm->card->dev,
+				      hw_chan * PAGE_SIZE,
+				      rtd->dma_desc_array,
+				      rtd->dma_desc_array_phys);
 err1:
 	pr_err("ERR:dma_desc_array alloc failed!\n");
 	kfree(rtd);
@@ -361,10 +357,10 @@ static int sprd_pcm_close(struct snd_pcm_substream *substream)
 		sprd_buffer_iram_restore();
 	else {
 #endif
-		dma_free_coherent(substream->pcm->card->dev,
-				      rtd->hw_chan * (PAGE_SIZE+32),
-				      rtd->dma_desc_array_orig,
-				      rtd->dma_desc_array_phys_orig);
+		dma_free_writecombine(substream->pcm->card->dev,
+				      rtd->hw_chan * PAGE_SIZE,
+				      rtd->dma_desc_array,
+				      rtd->dma_desc_array_phys);
 		if (!atomic_dec_return(&lightsleep_refcnt))
 			sprd_lightsleep_disable("audio", 0);
 #ifdef CONFIG_SND_SOC_SPRD_AUDIO_BUFFER_USE_IRAM
@@ -623,7 +619,7 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 	sp_asoc_pr_dbg("Node Size:%d\n", j);
 
 	dma_reg_addr[0].phys_addr = (u32) (rtd->dma_desc_array_phys);
-	dma_reg_addr[0].virt_addr = rtd->dma_desc_array;
+	dma_reg_addr[0].virt_addr = (u32) (rtd->dma_desc_array);
 	sp_asoc_pr_dbg("dma_reg_addr[0].virt_addr:0x%x\n",
 		       dma_reg_addr[0].virt_addr);
 	sp_asoc_pr_dbg("dma_reg_addr[0].phys_addr:0x%x\n",
@@ -646,7 +642,7 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 		    (u32) (dma_reg_addr[0].phys_addr) +
 		    runtime->hw.periods_max * DMA_LINKLIST_CFG_NODE_SIZE;
 		dma_reg_addr[1].virt_addr =
-		    (dma_reg_addr[0].virt_addr) +
+		    (u32) (dma_reg_addr[0].virt_addr) +
 		    runtime->hw.periods_max * DMA_LINKLIST_CFG_NODE_SIZE;
 		sp_asoc_pr_dbg("dma_reg_addr[1].virt_addr:0x%x\n",
 			       dma_reg_addr[1].virt_addr);
@@ -866,7 +862,7 @@ static int sprd_pcm_preallocate_dma_buffer(struct snd_pcm *pcm, int stream)
 		 && 0 == sprd_buffer_iram_backup())) {
 #endif
 		buf->private_data = NULL;
-		buf->area = dma_alloc_coherent(pcm->card->dev, size,
+		buf->area = dma_alloc_writecombine(pcm->card->dev, size,
 						   &buf->addr, GFP_KERNEL);
 #ifdef CONFIG_SND_SOC_SPRD_AUDIO_BUFFER_USE_IRAM
 	} else {
@@ -967,7 +963,7 @@ static void sprd_pcm_free_dma_buffers(struct snd_pcm *pcm)
 			sprd_buffer_iram_restore();
 		else
 #endif
-			dma_free_coherent(pcm->card->dev, buf->bytes,
+			dma_free_writecombine(pcm->card->dev, buf->bytes,
 					      buf->area, buf->addr);
 		buf->area = NULL;
 		if (buf == save_p_buf) {
@@ -989,6 +985,7 @@ static struct snd_soc_platform_driver sprd_soc_platform = {
 
 static int sprd_soc_platform_probe(struct platform_device *pdev)
 {
+        wake_lock_init(&pcm_open_wakelock, WAKE_LOCK_SUSPEND, "pcm_open_wakelock");
 	return snd_soc_register_platform(&pdev->dev, &sprd_soc_platform);
 }
 

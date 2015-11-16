@@ -21,6 +21,7 @@
 #define ONE_MICRO_SEC 1000000
 #define VBLANK_INTERVAL(x) (ONE_MICRO_SEC / (x))
 #define VBLANK_DEF_HZ	60
+#define VBLANK_LIMIT	20
 
 irqreturn_t sprd_drm_irq_handler(DRM_IRQ_ARGS);
 int sprd_drm_irq_init(struct drm_device *dev, unsigned long flags);

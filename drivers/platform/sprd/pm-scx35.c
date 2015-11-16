@@ -769,13 +769,13 @@ static void bak_restore_ap_intc(int bak)
 void show_pin_reg(void)
 {
 	sci_glb_set(SPRD_INT_BASE + 0x8, BIT(14) | BIT(4)); //ana & eic
-	printk("REG_PIN_XTLEN   0x%08x\n", sci_glb_read(REG_PIN_XTLEN, -1UL));
-	printk("REG_PIN_XTL_BUF_EN0   0x%08x\n", sci_glb_read(REG_PIN_XTL_BUF_EN0, -1UL));
-	printk("REG_PIN_XTL_BUF_EN1   0x%08x\n", sci_glb_read(REG_PIN_XTL_BUF_EN1, -1UL));
-	printk("REG_PIN_XTL_BUF_EN2   0x%08x\n", sci_glb_read(REG_PIN_XTL_BUF_EN2, -1UL));
-	printk("REG_PIN_CHIP_SLEEP    0x%08x\n", sci_glb_read(REG_PIN_CHIP_SLEEP, -1UL));
-	printk("### uart1 ckd 0x%08x\n", sci_glb_read(SPRD_UART1_BASE + 0X24, -1UL));
-	printk("### uart1 ctl 0x%08x\n", sci_glb_read(SPRD_UART1_BASE + 0X18, -1UL));
+	pr_debug("REG_PIN_XTLEN   0x%08x\n", sci_glb_read(REG_PIN_XTLEN, -1UL));
+	pr_debug("REG_PIN_XTL_BUF_EN0   0x%08x\n", sci_glb_read(REG_PIN_XTL_BUF_EN0, -1UL));
+	pr_debug("REG_PIN_XTL_BUF_EN1   0x%08x\n", sci_glb_read(REG_PIN_XTL_BUF_EN1, -1UL));
+	pr_debug("REG_PIN_XTL_BUF_EN2   0x%08x\n", sci_glb_read(REG_PIN_XTL_BUF_EN2, -1UL));
+	pr_debug("REG_PIN_CHIP_SLEEP    0x%08x\n", sci_glb_read(REG_PIN_CHIP_SLEEP, -1UL));
+	pr_debug("### uart1 ckd 0x%08x\n", sci_glb_read(SPRD_UART1_BASE + 0X24, -1UL));
+	pr_debug("### uart1 ctl 0x%08x\n", sci_glb_read(SPRD_UART1_BASE + 0X18, -1UL));
 #if defined(CONFIG_ARCH_SCX15)
 	sci_glb_set(REG_PMU_APB_XTL0_REL_CFG, 0x4);
 	sci_glb_set(REG_PMU_APB_XTLBUF0_REL_CFG, 0x4);
@@ -783,15 +783,15 @@ void show_pin_reg(void)
 	sci_glb_clr(REG_PMU_APB_PD_CP1_TD_CFG, BIT(24));
 #endif /* CONFIG_ARCH_SCX35L */
 #endif
-	printk("REG_PMU_APB_XTL0_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTL0_REL_CFG, -1UL));
-	printk("REG_PMU_APB_XTL1_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTL1_REL_CFG, -1UL));
+	pr_debug("REG_PMU_APB_XTL0_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTL0_REL_CFG, -1UL));
+	pr_debug("REG_PMU_APB_XTL1_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTL1_REL_CFG, -1UL));
 #if !defined(CONFIG_ARCH_SCX35L)
-	printk("REG_PMU_APB_XTL2_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTL2_REL_CFG, -1UL));
+	pr_debug("REG_PMU_APB_XTL2_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTL2_REL_CFG, -1UL));
 #endif
-	printk("REG_PMU_APB_XTLBUF0_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTLBUF0_REL_CFG, -1UL));
-	printk("REG_PMU_APB_XTLBUF1_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTLBUF1_REL_CFG, -1UL));
+	pr_debug("REG_PMU_APB_XTLBUF0_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTLBUF0_REL_CFG, -1UL));
+	pr_debug("REG_PMU_APB_XTLBUF1_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTLBUF1_REL_CFG, -1UL));
 #if !defined(CONFIG_ARCH_SCX35L)
-	printk("REG_PMU_APB_PD_CP1_TD_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_PD_CP1_TD_CFG, -1Ul));
+	pr_debug("REG_PMU_APB_PD_CP1_TD_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_PD_CP1_TD_CFG, -1Ul));
 #endif
 }
 void force_mcu_core_sleep(void)
@@ -950,97 +950,97 @@ void bak_last_reg(void)
 }
 void print_last_reg(void)
 {
-	printk("aon pmu status reg\n");
-	printk("REG_PMU_APB_PD_PUB_SYS_CFG ------ 0x%08x\n", pd_pub_sys);
-	printk("REG_PMU_APB_PD_MM_TOP_CFG ------ 0x%08x\n",
+	pr_debug("aon pmu status reg\n");
+	pr_debug("REG_PMU_APB_PD_PUB_SYS_CFG ------ 0x%08x\n", pd_pub_sys);
+	pr_debug("REG_PMU_APB_PD_MM_TOP_CFG ------ 0x%08x\n",
 			sci_glb_read(REG_PMU_APB_PD_MM_TOP_CFG, -1UL) );
-	printk("REG_PMU_APB_PD_AP_SYS_CFG ------ 0x%08x\n",
+	pr_debug("REG_PMU_APB_PD_AP_SYS_CFG ------ 0x%08x\n",
 			sci_glb_read(REG_PMU_APB_PD_AP_SYS_CFG, -1UL) );
 #ifdef REG_PMU_APB_PD_AP_DISP_CFG
-	printk("REG_PMU_APB_PD_AP_DISP_CFG ------ 0x%08x\n",
+	pr_debug("REG_PMU_APB_PD_AP_DISP_CFG ------ 0x%08x\n",
 			sci_glb_read(REG_PMU_APB_PD_AP_DISP_CFG, -1UL) );
 #endif
 
 #if defined(CONFIG_ARCH_SCX30G)
-	printk("REG_PMU_APB_PD_DDR_PUBL_CFG ------ 0x%08x\n",
+	pr_debug("REG_PMU_APB_PD_DDR_PUBL_CFG ------ 0x%08x\n",
 			sci_glb_read(REG_PMU_APB_PD_DDR_PUBL_CFG, -1UL) );
-	printk("REG_PMU_APB_PD_DDR_PHY_CFG ------ 0x%08x\n",
+	pr_debug("REG_PMU_APB_PD_DDR_PHY_CFG ------ 0x%08x\n",
 			sci_glb_read(REG_PMU_APB_PD_DDR_PHY_CFG, -1UL) );
 #endif
-	printk("REG_PMU_APB_CP_SLP_STATUS_DBG0 ----- 0x%08x\n", cp_slp_status_dbg0);
+	pr_debug("REG_PMU_APB_CP_SLP_STATUS_DBG0 ----- 0x%08x\n", cp_slp_status_dbg0);
 #if !defined(CONFIG_ARCH_SCX35L)
-	printk("REG_PMU_APB_CP_SLP_STATUS_DBG1 ----- 0x%08x\n", cp_slp_status_dbg1);
+	pr_debug("REG_PMU_APB_CP_SLP_STATUS_DBG1 ----- 0x%08x\n", cp_slp_status_dbg1);
 #endif
-	printk("REG_PMU_APB_PWR_STATUS0_DBG ----- 0x%08x\n", pwr_stat0);
-	printk("REG_PMU_APB_PWR_STATUS1_DBG ----- 0x%08x\n", pwr_stat1);
-	printk("REG_PMU_APB_PWR_STATUS2_DBG ----- 0x%08x\n", pwr_stat2);
+	pr_debug("REG_PMU_APB_PWR_STATUS0_DBG ----- 0x%08x\n", pwr_stat0);
+	pr_debug("REG_PMU_APB_PWR_STATUS1_DBG ----- 0x%08x\n", pwr_stat1);
+	pr_debug("REG_PMU_APB_PWR_STATUS2_DBG ----- 0x%08x\n", pwr_stat2);
 #if !defined(CONFIG_ARCH_SCX35L)
-	printk("REG_PMU_APB_PWR_STATUS3_DBG ----- 0x%08x\n", pwr_stat3);
+	pr_debug("REG_PMU_APB_PWR_STATUS3_DBG ----- 0x%08x\n", pwr_stat3);
 #endif
-	printk("REG_PMU_APB_SLEEP_CTRL ----- 0x%08x\n", sleep_ctrl);
-	printk("REG_PMU_APB_DDR_SLEEP_CTRL ----- 0x%08x\n", ddr_sleep_ctrl);
-	printk("REG_PMU_APB_SLEEP_STATUS ----- 0x%08x\n", sleep_status);
+	pr_debug("REG_PMU_APB_SLEEP_CTRL ----- 0x%08x\n", sleep_ctrl);
+	pr_debug("REG_PMU_APB_DDR_SLEEP_CTRL ----- 0x%08x\n", ddr_sleep_ctrl);
+	pr_debug("REG_PMU_APB_SLEEP_STATUS ----- 0x%08x\n", sleep_status);
 #if defined(CONFIG_ARCH_SCX15)
-	printk("REG_PMU_APB_XTL0_REL_CFG ----- 0x%08x\n", xtl0_rel_cfg);
-	printk("REG_PMU_APB_XTL1_REL_CFG ----- 0x%08x\n", xtl1_rel_cfg);
-	printk("REG_PMU_APB_XTL2_REL_CFG ----- 0x%08x\n", xtl2_rel_cfg);
-	printk("REG_PMU_APB_XTLBUF0_REL_CFG ----- 0x%08x\n", xtlbuf0_rel_cfg);
-	printk("REG_PMU_APB_XTLBUF1_REL_CFG ----- 0x%08x\n", xtlbuf1_rel_cfg);
-	printk("REG_PMU_APB_MPLL_REL_CFG ----- 0x%08x\n", mpll_rel_cfg);
-	printk("REG_PMU_APB_DPLL_REL_CFG ----- 0x%08x\n", dpll_rel_cfg);
-	printk("REG_PMU_APB_TDPLL_REL_CFG ----- 0x%08x\n", tdpll_rel_cfg);
-	printk("REG_PMU_APB_WPLL_REL_CFG ----- 0x%08x\n", wpll_rel_cfg);
-	printk("REG_PMU_APB_CPLL_REL_CFG ----- 0x%08x\n", cpll_rel_cfg);
-	printk("REG_PMU_APB_WIFIPLL1_REL_CFG ----- 0x%08x\n", wifipll1_rel_cfg);
-	printk("REG_PMU_APB_WIFIPLL2_REL_CFG ----- 0x%08x\n", wifipll2_rel_cfg);
-	printk("REG_PMU_APB_DDR_CHN_SLEEP_CTRL0 ----- 0x%08x\n", ddr_chn_sleep_ctrl0);
-	printk("REG_PMU_APB_DDR_CHN_SLEEP_CTRL1 ----- 0x%08x\n", ddr_chn_sleep_ctrl1);
+	pr_debug("REG_PMU_APB_XTL0_REL_CFG ----- 0x%08x\n", xtl0_rel_cfg);
+	pr_debug("REG_PMU_APB_XTL1_REL_CFG ----- 0x%08x\n", xtl1_rel_cfg);
+	pr_debug("REG_PMU_APB_XTL2_REL_CFG ----- 0x%08x\n", xtl2_rel_cfg);
+	pr_debug("REG_PMU_APB_XTLBUF0_REL_CFG ----- 0x%08x\n", xtlbuf0_rel_cfg);
+	pr_debug("REG_PMU_APB_XTLBUF1_REL_CFG ----- 0x%08x\n", xtlbuf1_rel_cfg);
+	pr_debug("REG_PMU_APB_MPLL_REL_CFG ----- 0x%08x\n", mpll_rel_cfg);
+	pr_debug("REG_PMU_APB_DPLL_REL_CFG ----- 0x%08x\n", dpll_rel_cfg);
+	pr_debug("REG_PMU_APB_TDPLL_REL_CFG ----- 0x%08x\n", tdpll_rel_cfg);
+	pr_debug("REG_PMU_APB_WPLL_REL_CFG ----- 0x%08x\n", wpll_rel_cfg);
+	pr_debug("REG_PMU_APB_CPLL_REL_CFG ----- 0x%08x\n", cpll_rel_cfg);
+	pr_debug("REG_PMU_APB_WIFIPLL1_REL_CFG ----- 0x%08x\n", wifipll1_rel_cfg);
+	pr_debug("REG_PMU_APB_WIFIPLL2_REL_CFG ----- 0x%08x\n", wifipll2_rel_cfg);
+	pr_debug("REG_PMU_APB_DDR_CHN_SLEEP_CTRL0 ----- 0x%08x\n", ddr_chn_sleep_ctrl0);
+	pr_debug("REG_PMU_APB_DDR_CHN_SLEEP_CTRL1 ----- 0x%08x\n", ddr_chn_sleep_ctrl1);
 #endif
 
-	printk("aon apb reg\n");
-	printk("REG_AON_APB_APB_EB0  ----- 0x%08x\n", apb_eb0);
-	printk("REG_AON_APB_APB_EB1  ----- 0x%08x\n", apb_eb1);
-	printk("REG_AON_APB_PWR_CTRL ----- 0x%08x\n", pwr_ctrl);
-	printk("REG_AON_APB_BB_BG_CTRL ------ 0x%08x\n",
+	pr_debug("aon apb reg\n");
+	pr_debug("REG_AON_APB_APB_EB0  ----- 0x%08x\n", apb_eb0);
+	pr_debug("REG_AON_APB_APB_EB1  ----- 0x%08x\n", apb_eb1);
+	pr_debug("REG_AON_APB_PWR_CTRL ----- 0x%08x\n", pwr_ctrl);
+	pr_debug("REG_AON_APB_BB_BG_CTRL ------ 0x%08x\n",
 			sci_glb_read(REG_AON_APB_BB_BG_CTRL, -1UL) );
 
-	printk("ap ahb reg \n");
-	printk("REG_AP_AHB_AHB_EB ----- 0x%08x\n", ahb_eb);
+	pr_debug("ap ahb reg \n");
+	pr_debug("REG_AP_AHB_AHB_EB ----- 0x%08x\n", ahb_eb);
 
-	printk("ap apb reg\n");
-	printk("REG_AP_APB_APB_EB ---- 0x%08x\n", apb_eb);
-	printk("REG_AP_AHB_MCU_PAUSE ---   0x%08x\n", mcu_pause);
-	printk("REG_AP_AHB_AP_SYS_FORCE_SLEEP_CFG --- 0x%08x\n", sys_force_sleep);
-	printk("REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG ---- 0x%08x\n", sys_auto_sleep_cfg);
-	printk("REG_AP_AHB_CA7_STANDBY_STATUS ---- 0x%08x\n", ca7_standby_status);
+	pr_debug("ap apb reg\n");
+	pr_debug("REG_AP_APB_APB_EB ---- 0x%08x\n", apb_eb);
+	pr_debug("REG_AP_AHB_MCU_PAUSE ---   0x%08x\n", mcu_pause);
+	pr_debug("REG_AP_AHB_AP_SYS_FORCE_SLEEP_CFG --- 0x%08x\n", sys_force_sleep);
+	pr_debug("REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG ---- 0x%08x\n", sys_auto_sleep_cfg);
+	pr_debug("REG_AP_AHB_CA7_STANDBY_STATUS ---- 0x%08x\n", ca7_standby_status);
 
-	printk("ana reg \n");
-	printk("ANA_REG_GLB_LDO_SLP_CTRL0 --- 0x%08x\n", ldo_slp_ctrl0);
-	printk("ANA_REG_GLB_LDO_SLP_CTRL1 --- 0x%08x\n", ldo_slp_ctrl1);
-	printk("ANA_REG_GLB_LDO_SLP_CTRL2 --- 0x%08x\n", ldo_slp_ctrl2);
-	printk("ANA_REG_GLB_LDO_SLP_CTRL3 --- 0x%08x\n", ldo_slp_ctrl3);
-	printk("ANA_REG_GLB_AUD_SLP_CTRL4 --- 0x%08x\n", ldo_aud_ctrl4);
-	printk("ANA_REG_GLB_XTL_WAIT_CTRL --- 0x%08x\n", xtl_wait_ctrl);
+	pr_debug("ana reg \n");
+	pr_debug("ANA_REG_GLB_LDO_SLP_CTRL0 --- 0x%08x\n", ldo_slp_ctrl0);
+	pr_debug("ANA_REG_GLB_LDO_SLP_CTRL1 --- 0x%08x\n", ldo_slp_ctrl1);
+	pr_debug("ANA_REG_GLB_LDO_SLP_CTRL2 --- 0x%08x\n", ldo_slp_ctrl2);
+	pr_debug("ANA_REG_GLB_LDO_SLP_CTRL3 --- 0x%08x\n", ldo_slp_ctrl3);
+	pr_debug("ANA_REG_GLB_AUD_SLP_CTRL4 --- 0x%08x\n", ldo_aud_ctrl4);
+	pr_debug("ANA_REG_GLB_XTL_WAIT_CTRL --- 0x%08x\n", xtl_wait_ctrl);
 
-	printk("ANA_REG_GLB_PWR_XTL_EN0 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN0));
-	printk("ANA_REG_GLB_PWR_XTL_EN1 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN1));
-	printk("ANA_REG_GLB_PWR_XTL_EN2 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN2));
-	printk("ANA_REG_GLB_PWR_XTL_EN3 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN3));
+	pr_debug("ANA_REG_GLB_PWR_XTL_EN0 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN0));
+	pr_debug("ANA_REG_GLB_PWR_XTL_EN1 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN1));
+	pr_debug("ANA_REG_GLB_PWR_XTL_EN2 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN2));
+	pr_debug("ANA_REG_GLB_PWR_XTL_EN3 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN3));
 #if !defined(CONFIG_ADIE_SC2723) && !defined(CONFIG_ADIE_SC2723S)
-	printk("ANA_REG_GLB_PWR_XTL_EN4 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN4));
+	pr_debug("ANA_REG_GLB_PWR_XTL_EN4 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN4));
 #endif
 #if !defined(CONFIG_ARCH_SCX15) && !defined(CONFIG_ADIE_SC2723) && !defined(CONFIG_ADIE_SC2723S)
-	printk("ANA_REG_GLB_PWR_XTL_EN5 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN5));
+	pr_debug("ANA_REG_GLB_PWR_XTL_EN5 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN5));
 #endif
-	printk("mm reg\n");
-	printk("REG_MM_AHB_AHB_EB ---- 0x%08x\n", mm_apb);
+	pr_debug("mm reg\n");
+	pr_debug("REG_MM_AHB_AHB_EB ---- 0x%08x\n", mm_apb);
 
-	printk("ana reg\n");
+	pr_debug("ana reg\n");
 #if defined(CONFIG_ARCH_SCX15)
-	printk("ANA_REG_GLB_LDO_DCDC_PD --- 0x%08x\n", ldo_dcdc_pd_ctrl);
+	pr_debug("ANA_REG_GLB_LDO_DCDC_PD --- 0x%08x\n", ldo_dcdc_pd_ctrl);
 #endif
-	printk("ANA_REG_GLB_LDO_PD_CTRL --- 0x%08x\n", ldo_pd_ctrl);
-	printk("ANA_REG_GLB_ARM_MODULE_EN --- 0x%08x\n", arm_module_en);
+	pr_debug("ANA_REG_GLB_LDO_PD_CTRL --- 0x%08x\n", ldo_pd_ctrl);
+	pr_debug("ANA_REG_GLB_ARM_MODULE_EN --- 0x%08x\n", arm_module_en);
 }
 #if 0
 static void test_setup_timer(int load)
@@ -1284,11 +1284,11 @@ void int_work_round(void)
 }
 void show_deep_reg_status(void)
 {
-	printk("PWR_STATUS0_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS0_DBG, -1UL));
-	printk("PWR_STATUS1_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS1_DBG, -1UL));
-	printk("PWR_STATUS2_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS2_DBG, -1UL));
+	pr_debug("PWR_STATUS0_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS0_DBG, -1UL));
+	pr_debug("PWR_STATUS1_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS1_DBG, -1UL));
+	pr_debug("PWR_STATUS2_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS2_DBG, -1UL));
 #if !defined(CONFIG_ARCH_SCX35L)
-	printk("PWR_STATUS3_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS3_DBG, -1UL));
+	pr_debug("PWR_STATUS3_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS3_DBG, -1UL));
 #endif /* CONFIG_ARCH_SCX35L */
 }
 
@@ -1443,12 +1443,12 @@ int deep_sleep(int from_idle)
 		__raw_writel(0x1, REG_PMU_APB_CA7_C0_CFG);
 #endif
 #endif
-		printk("ret %d not from idle\n", ret);
+		pr_debug("ret %d not from idle\n", ret);
 		if(ret){
 #if defined(CONFIG_DDR_VALIDITY_TEST) && defined(CONFIG_ARCH_SCX30G)
-			printk("DDR test: read times: %ld\n", *(vtest + 1));
+			pr_debug("DDR test: read times: %ld\n", *(vtest + 1));
 #endif
-			printk("deep sleep %u times\n", cnt);
+			pr_debug("deep sleep %u times\n", cnt);
 			cnt++;
 		}
 		sci_glb_set(REG_AP_APB_APB_EB, 0xf<<19);

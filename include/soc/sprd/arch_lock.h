@@ -122,7 +122,7 @@ static int arch_hwlock_fast_trylock(unsigned int lock_id)
 		}
 	}
 
-	printk(KERN_ERR "Hwspinlock [%d] lock failed!\n",lock_id);
+	pr_debug("Hwspinlock [%d] lock failed!\n",lock_id);
 	return 0;
 
 __locked:

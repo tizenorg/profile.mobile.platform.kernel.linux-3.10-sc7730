@@ -2,9 +2,10 @@
 
 #include <linux/jiffies.h>
 
-int cpu_busy_level;
-static unsigned long current_boot_completed;
 
+static unsigned long current_boot_completed;
+#if defined(CONFIG_SLP_BUSY_LEVEL)
+int cpu_busy_level;
 int la_get_cpu_busy_level(void)
 {
 	return cpu_busy_level;
@@ -104,8 +105,10 @@ int check_load_level(unsigned int current_cnt)
 
 	return	busy_level;
 }
+#endif
 
 
+#if defined(CONFIG_SLP_CURRENT_MONITOR)
 #define CM_SAVE_DATA_NUM	100
 
 int save_end_index;
@@ -238,11 +241,11 @@ static const struct file_operations current_monitor_en_fops = {
 
 void debugfs_current(struct dentry *d)
 {
-	if (!debugfs_create_file("current_monitor", 0644
+	if (!debugfs_create_file("current_monitor", 0600
 		, d, NULL,&current_monitor_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "current_monitor");
 
-	if (!debugfs_create_file("current_monitor_en", 0644
+	if (!debugfs_create_file("current_monitor_en", 0600
 		, d, NULL,&current_monitor_en_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "current_monitor_en");
 }
@@ -252,5 +255,5 @@ void load_analyzer_current_init(void) {
         #define EXPECTED_BOOT_TIME	(60 * HZ)
 	current_boot_completed = jiffies + EXPECTED_BOOT_TIME;
 }
-
+#endif
 

@@ -50,12 +50,6 @@ extern struct panel_if_ctrl sprdfb_rgb_ctrl;
 extern struct panel_if_ctrl sprdfb_mipi_ctrl;
 #endif
 extern void sprdfb_panel_remove(struct sprdfb_device *dev);
-
-#ifdef CONFIG_SPRDFB_MDNIE_LITE_TUNING
-extern int sprdfb_mdnie_reg (struct sprdfb_device *dev, mdnie_w w, mdnie_r r, mdnie_c c);
-extern void mdnie_state_restore(struct sprdfb_device *fb_dev);
-#endif
-
 #ifdef ENABLE_CLK_HS_ON_INIT
 extern int32_t sprdfb_dsi_hs_ready(struct sprdfb_device *dev);
 #endif
@@ -706,9 +700,6 @@ bool sprdfb_panel_init(struct platform_device *pdev, struct sprdfb_device *dev)
 			return false;
 		}
 	}
-#ifdef CONFIG_SPRDFB_MDNIE_LITE_TUNING
-	sprdfb_mdnie_reg(dev, dev->panel->ops->panel_send_mdnie_cmds, NULL, dev->panel->ops->panel_get_color_coordinates);
-#endif
 
 	if (dev->panel->ops->panel_read_offset)
 		dev->panel->ops->panel_read_offset(dev->panel);
@@ -1000,9 +991,7 @@ void sprdfb_panel_resume(struct sprdfb_device *dev, bool from_deep_sleep)
 		//step4 clk/data lane enter HS
 		panel_ready(dev);
 	}
-#ifdef CONFIG_SPRDFB_MDNIE_LITE_TUNING
-	mdnie_state_restore(dev);
-#endif
+
 }
 
 void sprdfb_panel_remove(struct sprdfb_device *dev)

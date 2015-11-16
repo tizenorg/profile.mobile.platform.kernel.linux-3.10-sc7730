@@ -99,13 +99,9 @@
 
 #define IST30XX_EVENT_MODE		(1)
 #if IST30XX_EVENT_MODE
-#define IST30XX_NOISE_MODE		(1)
 #define IST30XX_TRACKING_MODE		(1)
-#define IST30XX_ALGORITHM_MODE		(1)
 #else
-#define IST30XX_NOISE_MODE		(0) /* fixed */
 #define IST30XX_TRACKING_MODE		(0) /* fixed */
-#define IST30XX_ALGORITHM_MODE		(0) /* fixed */
 #endif
 
 #define IST30XX_TA_RESET		(1)
@@ -178,7 +174,7 @@ enum ist30xx_reliability_commands {
 #define DEV_DEBUG			(5)
 #define DEV_VERB			(6)
 
-#define IST30XX_DEBUG_TAG		"[ TSP ]"
+#define IST30XX_DEBUG_TAG		"[TSP]"
 #define IST30XX_DEBUG_LEVEL		DEV_NOTI
 
 #define tsp_err(fmt, ...)		tsp_printk(DEV_ERR, fmt, ## __VA_ARGS__)
@@ -501,6 +497,8 @@ struct ist30xx_data {
 	finger_info fingers[IST30XX_MAX_MT_FINGERS];
 	u32 lx[IST30XX_MAX_MT_FINGERS];
 	u32 ly[IST30XX_MAX_MT_FINGERS];
+	bool tsp_touched[IST30XX_MAX_MT_FINGERS];
+	u32 press_cnt[IST30XX_MAX_MT_FINGERS];
 	volatile bool irq_working;
 	u32 irq_enabled;
 	bool initialized;
@@ -528,10 +526,9 @@ struct ist30xx_data {
 	u16 max_y;
 	bool track_enable;
 	bool deep_sleep;
+	u16 press_finger_cnt;
 	/* SEC defined ]*/
 	struct delayed_work     work_reset_check;
-	struct delayed_work     work_noise_protect;
-	struct delayed_work     work_debug_algorithm;
 #if IST30XX_INTERNAL_BIN
 #if IST30XX_UPDATE_BY_WORKQUEUE
 	struct delayed_work     work_fw_update;

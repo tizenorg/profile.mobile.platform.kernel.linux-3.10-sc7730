@@ -46,7 +46,7 @@ static void scale_k_irq(void *fd)
 		return;
 	}
 
-	printk("sc done.\n");
+	SCALE_TRACE("sc done.\n");
 
 	up(&scale_file->scale_done_sem);
 }

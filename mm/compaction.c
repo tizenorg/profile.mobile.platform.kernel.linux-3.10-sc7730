@@ -1168,12 +1168,17 @@ static void compact_node(int nid)
 }
 
 /* Compact all nodes in the system */
-static void compact_nodes(void)
+void compact_nodes(void)
 {
 	int nid;
 
 	/* Flush pending updates to the LRU lists */
 	lru_add_drain_all();
+
+	/* Increment compact_stall when compaction is invoked from vm interface,
+	 * i.e. /proc/sys/vm/compact_memory
+	 */
+	count_compact_event(COMPACTSTALL);
 
 	for_each_online_node(nid)
 		compact_node(nid);

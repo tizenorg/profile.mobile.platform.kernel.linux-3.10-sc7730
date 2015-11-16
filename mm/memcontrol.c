@@ -59,6 +59,14 @@
 #include <net/ip.h>
 #include <net/tcp_memcontrol.h>
 
+#ifdef CONFIG_SHRINK_MEMORY
+#ifdef CONFIG_COMPACTION
+#include <linux/compaction.h>
+#endif
+#include <linux/vmstat.h>
+#define MIN_SHRINK_THRESHOLD 25000
+#endif
+
 #include <asm/uaccess.h>
 
 #include <trace/events/vmscan.h>
@@ -5029,6 +5037,29 @@ static int mem_cgroup_force_reclaim(struct cgroup *cont, struct cftype *cft, u64
 		if (loop && (!total || total > nr_to_reclaim))
 			break;
 	}
+
+	if (IS_ENABLED(CONFIG_SHRINK_MEMORY)) {
+		/* if reclaim failed from cgroup and if number of
+		 * global reclaimable pages is less than 100MB, then
+		 * do not call memory shrinker.
+		 */
+		if ((total < nr_to_reclaim) &&
+			(global_reclaimable_pages() > MIN_SHRINK_THRESHOLD)) {
+			unsigned long nr_shrink;
+			nr_shrink = shrink_all_memory(totalram_pages/2);
+			pr_info("%s: Total pages shrinked: %lu\n",
+						 __func__, nr_shrink);
+			total += nr_shrink;
+		}
+	}
+
+	/* Calling compaction immediately after reclaim give good benefits.
+	 * So, if either cgroup_reclaim or shrinker could make some progress,
+	 * we trigger compaction.
+	 */
+	if (IS_ENABLED(CONFIG_COMPACTION) && (total > 0))
+		compact_nodes();
+
 	return total;
 }
 #endif

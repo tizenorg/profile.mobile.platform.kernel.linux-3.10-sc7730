@@ -849,8 +849,8 @@ static void send_vblank_event(struct drm_device *dev,
 
 	list_add_tail(&e->base.link,
 		      &e->base.file_priv->event_list);
-	DRM_DEBUG("[vbl_evt_%d]user[0x%x]sec[%d %d]seq[%d]\n",
-		e->pipe, (int)e->event.user_data,
+	DRM_DEBUG("[vbl_evt_%d]e[0x%x]user[0x%x]sec[%d %d]seq[%d]\n",
+		e->pipe, (int)e, (int)e->event.user_data,
 		e->event.tv_sec, e->event.tv_usec,
 		e->event.sequence);
 	wake_up_interruptible(&e->base.file_priv->event_wait);

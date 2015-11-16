@@ -491,7 +491,7 @@ static int32_t isp_k_2d_lsc_transaddr(struct isp_io_param *param,
 
 	isp_private->lsc_buf_phys_addr = lsc_addr.phys_addr;
 
-	printk("lsc phys addr 0x%x,\n",isp_private->lsc_buf_phys_addr);
+	/* printk("lsc phys addr 0x%x,\n",isp_private->lsc_buf_phys_addr); */
 	return ret;
 }
 

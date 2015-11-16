@@ -112,7 +112,9 @@ int sprd_cpu_kill(unsigned int cpu)
 #ifdef CONFIG_ARCH_SCX35
 	int i = 0;
 	pr_debug("!! %d  platform_cpu_kill %d !!\n", smp_processor_id(), cpu);
-	while (i < 20) {
+
+	while (i < 40) {
+		printk("!!zcf %d  platform_cpu_kill %d !! reg:%x i:%d\n", smp_processor_id(), cpu, sci_glb_read(REG_AP_AHB_CA7_STANDBY_STATUS, -1UL), i);
 		//check wfi?
 		if (sci_glb_read(REG_AP_AHB_CA7_STANDBY_STATUS, -1UL) & (1 << cpu_logical_map(cpu)))
 		{
@@ -122,8 +124,12 @@ int sprd_cpu_kill(unsigned int cpu)
 		udelay(100);
 		i++;
 	}
-	pr_debug("platform_cpu_kill finished i=%d !!\n", i);
-	return (i >= 20? 0 : 1);
+
+	if (i >= 40)
+		powerdown_cpus(cpu);
+
+	printk("zcf platform_cpu_kill finished i=%d !!\n", i);
+	return (i >= 40? 0 : 1);
 #endif
 	return 1;
 }
@@ -136,6 +142,7 @@ int sprd_cpu_kill(unsigned int cpu)
 void __cpuinit sprd_cpu_die(unsigned int cpu)
 {
 	int spurious = 0;
+	printk("zcf sprd_cpu_die \n");
 
 #ifdef CONFIG_ARCH_SCX35
 	sci_shark_enter_lowpower();

@@ -37,6 +37,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <soc/sprd/sci_glb_regs.h>
 
 #define IRQ_WAKEUP 	0
 
@@ -394,35 +395,8 @@ static int serial_sprd_startup(struct uart_port *port)
 {
 	int ret = 0;
 	unsigned int ien, ctrl1;
-	int rx_count = 130;
-	int tx_count = 130;
-
-	/* FIXME: don't know who change u0cts pin in 88 */
-	serial_sprd_pin_config();
-
-	/* set fifo water mark,tx_int_mark=8,rx_int_mark=1 */
-#if 0				/* ? */
-	serial_out(port, ARM_UART_CTL2, 0x801);
-#endif
 
 	serial_out(port, ARM_UART_CTL2, ((SP_TX_FIFO << 8) | SP_RX_FIFO));
-	/* clear rx fifo */
-	while (serial_in(port, ARM_UART_STS1) & 0x00ff) {
-		serial_in(port, ARM_UART_RXD);
-		if(!(rx_count)){
-			printk("serial_sprd_startup rx\n");
-			return -EIO;
-		}
-		rx_count --;
-	}
-	/* clear tx fifo */
-	while (serial_in(port, ARM_UART_STS1) & 0xff00){
-		if(!(tx_count)){
-			printk("serial_sprd_startup tx\n");
-			return -EIO;
-		}
-		tx_count --;
-	}
 	/* clear interrupt */
 	serial_out(port, ARM_UART_IEN, 0x00);
 	serial_out(port, ARM_UART_ICLR, 0xffffffff);
@@ -465,10 +439,20 @@ static int serial_sprd_startup(struct uart_port *port)
 	return 0;
 }
 
+static void serial_sprd_reset(struct uart_port *port)
+{
+	unsigned long value = 0;
+
+	writel_relaxed((BIT_UART0_SOFT_RST<<(port->line)), REG_AP_APB_APB_RST);
+
+	value = readl_relaxed( REG_AP_APB_APB_RST);
+	value &= ~(BIT_UART0_SOFT_RST<<(port->line));
+	writel_relaxed(value, REG_AP_APB_APB_RST);
+}
+
 static void serial_sprd_shutdown(struct uart_port *port)
 {
-	serial_out(port, ARM_UART_IEN, 0x0);
-	serial_out(port, ARM_UART_ICLR, 0xffffffff);
+	serial_sprd_reset(port);
 	free_irq(port->irq, port);
 }
 

@@ -743,4 +743,13 @@ config INPUT_EPL259X_I2C
 	  communication, else say N.
 
 	  To compile this driver as a module, choose M here.
+
+config INPUT_SECBRIDGE
+        default n
+        bool "Enable input bridge support"
+        help
+          Say Y here if you want to enable input bridge.
+          This is useful for enabling different operation
+          according to key combinations.
+          If unsure, say N.
 endif

@@ -201,8 +201,6 @@ int sensor_power_on(uint32_t *fd_handle, uint32_t sensor_id, struct sensor_power
 {
 	int ret = 0;
 
-	pr_info("%s: system_rev = %d\n", __func__, system_rev);
-
 	if (SENSOR_DEV_0 == sensor_id) {
 		ret = sensor_s5k4h5yc_poweron(fd_handle, dev0, dev1, dev2);
 	} else if (SENSOR_DEV_1 == sensor_id) {

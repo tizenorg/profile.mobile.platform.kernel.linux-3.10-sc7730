@@ -618,6 +618,7 @@ ssize_t drm_read(struct file *filp, char __user *buffer,
 		}
 
 		total += e->event->length;
+		DRM_DEBUG("[%s]e[0x%x]\n", __func__, (int)e);
 		e->destroy(e);
 	}
 

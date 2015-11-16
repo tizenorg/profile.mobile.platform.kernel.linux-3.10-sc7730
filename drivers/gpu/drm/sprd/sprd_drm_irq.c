@@ -19,6 +19,7 @@
 #include <soc/sprd/cpuidle.h>
 
 extern struct drm_device *sprd_drm_dev;
+extern void panel_esd_enable (bool enable);
 
 #ifdef CONFIG_OF
 extern unsigned long g_dispc_base_addr;
@@ -207,18 +208,11 @@ out:
 int sprd_prepare_vblank(struct drm_device *dev, int crtc, struct drm_file *file_priv)
 {
 	struct sprd_drm_private *dev_priv = dev->dev_private;
-	int limit = VBLANK_DEF_HZ;
+	int limit = VBLANK_LIMIT;
 
 	if (crtc >= DRM_CRTC_ID_MAX) {
 		DRM_ERROR("crtc[%d]\n", crtc);
 		return -EINVAL;
-	}
-
-	if (!file_priv->is_master && !dev->vblank_enabled[crtc]) {
-		DRM_DEBUG("[pre_vbl_%d]r[%d]t[%d]VBL_OFF\n", crtc,
-			atomic_read(&dev->vblank_refcount[crtc]),
-			atomic_read(&dev_priv->vbl_trg_cnt[crtc]));
-		return -EACCES;
 	}
 
 	if (file_priv->is_master)
@@ -268,6 +262,7 @@ int sprd_enable_vblank(struct drm_device *dev, int crtc)
 		atomic_read(&dev_priv->vbl_trg_cnt[crtc]));
 
 	dev_priv->dbg_cnt = 2;
+	panel_esd_enable(false);
 
 	return 0;
 }
@@ -284,6 +279,9 @@ void sprd_disable_vblank(struct drm_device *dev, int crtc)
 	DRM_INFO("[off_vbl_%d]r[%d]t[%d]\n", crtc,
 		atomic_read(&dev->vblank_refcount[crtc]),
 		atomic_read(&dev_priv->vbl_trg_cnt[crtc]));
+
+	atomic_set(&dev_priv->vbl_trg_cnt[crtc], 0);
+	panel_esd_enable(true);
 }
 
 u32 sprd_drm_get_vblank_counter(struct drm_device *dev, int crtc)

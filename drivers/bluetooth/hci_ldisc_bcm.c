@@ -673,6 +673,15 @@ static int hci_uart_open(struct hci_dev *hdev)
         return -EAGAIN;
     }
 
+	/* BEGIN TIZEN_Bluetooth */
+	/* FIXME: in order to wait enough until uart init complete,
+	   the below routine is added.
+	*/
+
+	msleep(100);
+	/* END TIZEN_Bluetooth */
+
+
     /* Registration with ST layer is completed successfully,
     * now chip is ready to accept commands from HCI CORE.
     * Mark HCI Device flag as RUNNING
@@ -930,7 +939,7 @@ static int hci_uart_tty_open(struct tty_struct *tty)
 static void hci_uart_tty_close(struct tty_struct *tty)
 {
    struct hci_uart *hu = (void *)tty->disc_data;
-	struct hci_dev *hdev;
+   struct hci_dev *hdev = hu->hdev;
 
    int i;
    unsigned long flags;
@@ -946,9 +955,13 @@ static void hci_uart_tty_close(struct tty_struct *tty)
 
    if (hu)
    {
+     if (hdev)
+	hci_uart_close(hdev);
+
+     cancel_work_sync(&hu->write_work);
+
      if (test_and_clear_bit(HCI_UART_PROTO_SET, &hu->flags))
      {
-         hdev = hu->hdev;
          if (hdev) {
             if (test_bit(HCI_UART_REGISTERED, &hu->flags))
                hci_unregister_dev(hdev);

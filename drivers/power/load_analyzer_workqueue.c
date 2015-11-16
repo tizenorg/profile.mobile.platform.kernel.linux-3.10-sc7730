@@ -592,10 +592,10 @@ static const struct file_operations check_work_detail_fops = {
 
 void debugfs_workqueue(struct dentry *d)
 {
-	if (!debugfs_create_file("check_work", 0644
+	if (!debugfs_create_file("check_work", 0600
 		, d, NULL,&check_work_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "check_work");
-	if (!debugfs_create_file("check_work_detail", 0644
+	if (!debugfs_create_file("check_work_detail", 0600
 		, d, NULL,&check_work_detail_fops))   \
 			pr_err("%s : debugfs_create_file, error\n", "check_work_detail");
 }

@@ -233,9 +233,9 @@ static const struct id_desc id_to_cable_type_mapping[] = {
 	 .cable_type_without_vbus = MUIC_SM5504_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 10100, 20 */
-	 .name = "AT&T TA/Unknown",
-	 .cable_type_with_vbus = MUIC_SM5504_CABLE_TYPE_ATT_TA,
-	 .cable_type_without_vbus = MUIC_SM5504_CABLE_TYPE_UNKNOWN,
+	 .name = "Samsung Power Sharing Cable EP-SG900",
+	 .cable_type_with_vbus = MUIC_SM5504_CABLE_TYPE_SAMSUNG_PS,
+	 .cable_type_without_vbus = MUIC_SM5504_CABLE_TYPE_SAMSUNG_PS,
 	 },
 	{			/* 10101, 21 */
 	 .name = "ADC0x15 Charger/Unknown",
@@ -313,6 +313,9 @@ enum {
 	UART_SHIFT,
 	JIG_SHIFT,
 	L_USB_SHIFT,
+#ifdef CONFIG_MUIC_SUPPORT_PS_CABLE
+	SAMSUNG_PS_SHIFT,
+#endif
 };
 
 struct sm5504_status {
@@ -338,6 +341,9 @@ struct sm5504_status {
 			uint32_t uart_connect:1;
 			uint32_t jig_connect:1;
 			uint32_t l_usb_connect:1;
+#ifdef CONFIG_MUIC_SUPPORT_PS_CABLE
+			uint32_t samsung_ps_status:1;
+#endif
 		};
 		uint32_t status;
 	};
@@ -628,6 +634,10 @@ static void sm5504_preprocess_status(sm5504_chip_t *chip)
 	      MUIC_SM5504_CABLE_TYPE_JIG_UART_ON_WITH_VBUS)) ? 1 : 0;
     chip->curr_status.l_usb_connect = (chip->curr_status.cable_type ==
 	      MUIC_SM5504_CABLE_TYPE_L_USB) ? 1 : 0;
+#ifdef CONFIG_MUIC_SUPPORT_PS_CABLE
+	chip->curr_status.samsung_ps_status= (chip->curr_status.cable_type ==
+	      MUIC_SM5504_CABLE_TYPE_SAMSUNG_PS) ? 1 : 0;
+#endif
 }
 
 #define FLAG_HIGH           (0x01)
@@ -645,6 +655,7 @@ static inline uint32_t state_check(unsigned int old_state,
 	unsigned int ret = 0;
 	old_state &= bit_mask;
 	new_state &= bit_mask;
+
 	if (new_state)
 		ret |= FLAG_HIGH;
 	else
@@ -744,6 +755,9 @@ static char *sm5504_cable_names[] = {
 	"MUIC_SM5504_CABLE_TYPE_INVALID",
 
 	"MUIC_SM5504_CABLE_TYPE_OTG_WITH_VBUS",
+#ifdef CONFIG_MUIC_SUPPORT_PS_CABLE
+	"MUIC_SM5504_CABLE_TYPE_SAMSUNG_PS",
+#endif
 };
 #endif /*RTDBGINFO_LEVEL<=RTDBGLEVEL */
 
@@ -831,6 +845,7 @@ static void sm5504_otg_attach_handler(struct sm5504_chip *chip,
 	};
 
 	RTINFO("OTG attached\n");
+
 	sm5504_reg_write(chip, SM5504_REG_MANUAL_SW1, 0x24);
 	/* Disable USBCHDEN and AutoConfig*/
 	sm5504_clr_bits(chip, SM5504_REG_CONTROL, (1 << 2) | (1 << 6));
@@ -853,6 +868,7 @@ static void sm5504_otg_detach_handler(struct sm5504_chip *chip,
 	};
 
 	RTINFO("OTG detached\n");
+
 	sm5504_reg_write(chip, SM5504_REG_MANUAL_SW1, 0x00);
 	/* Enable USBCHDEN and AutoConfig*/
 	sm5504_set_bits(chip, SM5504_REG_CONTROL, (1 << 2) | (1 << 6));
@@ -863,6 +879,55 @@ static void sm5504_otg_detach_handler(struct sm5504_chip *chip,
 	atomic_notifier_call_chain(&muic_notifier_list,
 					MUIC_OTG_DETACH_NOTI, &param);
 }
+
+#ifdef CONFIG_MUIC_SUPPORT_PS_CABLE
+static void sm5504_ps_attach_handler(struct sm5504_chip *chip,
+				      const struct sm5504_event_handler
+				      *handler, unsigned int old_status,
+				      unsigned int new_status)
+{
+	struct muic_notifier_param param = {
+		.vbus_status = 1,
+		.cable_type = chip->curr_status.cable_type,
+	};
+
+	RTINFO("PS_CABLE attached\n");
+
+	sm5504_reg_write(chip, SM5504_REG_MANUAL_SW1, 0x24);
+	/* Disable USBCHDEN and AutoConfig*/
+	sm5504_clr_bits(chip, SM5504_REG_CONTROL, (1 << 2) | (1 << 6));
+
+        if (chip->pdata->ps_cable_callback)
+                chip->pdata->ps_cable_callback(1);
+
+	atomic_notifier_call_chain(&muic_notifier_list,
+					MUIC_PS_ATTACH_NOTI, &param);
+
+}
+
+static void sm5504_ps_detach_handler(struct sm5504_chip *chip,
+				      const struct sm5504_event_handler
+				      *handler, unsigned int old_status,
+				      unsigned int new_status)
+{
+	struct muic_notifier_param param = {
+		.vbus_status = 0,
+		.cable_type = chip->curr_status.cable_type,
+	};
+
+	RTINFO("PS_CABLE detached\n");
+
+	sm5504_reg_write(chip, SM5504_REG_MANUAL_SW1, 0x00);
+	/* Enable USBCHDEN and AutoConfig*/
+	sm5504_set_bits(chip, SM5504_REG_CONTROL, (1 << 2) | (1 << 6));
+
+        if (chip->pdata->ps_cable_callback)
+                chip->pdata->ps_cable_callback(0);
+
+	atomic_notifier_call_chain(&muic_notifier_list,
+					MUIC_PS_DETACH_NOTI, &param);
+}
+#endif
 
 static void sm5504_usb_attach_handler(struct sm5504_chip *chip,
 				      const struct sm5504_event_handler
@@ -1114,6 +1179,20 @@ struct sm5504_event_handler normal_event_handlers[] = {
 	 .type = FLAG_HIGH,
 	 .handler = sm5504_cable_change_handler,
 	 },
+#ifdef CONFIG_MUIC_SUPPORT_PS_CABLE
+	{
+	 .name = "SAMSUNG PS attached",
+	 .bit_mask = (1 << SAMSUNG_PS_SHIFT),
+	 .type = FLAG_RISING,
+	 .handler = sm5504_ps_attach_handler,
+	 },
+	{
+	 .name = "SAMSUNG PS detached",
+	 .bit_mask = (1 << SAMSUNG_PS_SHIFT),
+	 .type = FLAG_FALLING,
+	 .handler = sm5504_ps_detach_handler,
+	 },
+#endif
 	{
 	 .name = "OTG attached",
 	 .bit_mask = (1 << OTG_SHIFT),
@@ -1667,6 +1746,9 @@ static int sm5504_probe(struct i2c_client *client,
 	pdata->otg_callback  = switch_data.otg_cb;
 	pdata->uart_callback = switch_data.set_jig_state_cb;
 	pdata->cable_chg_callback = switch_data.cable_chg_cb;
+#ifdef CONFIG_MUIC_SUPPORT_PS_CABLE
+	pdata->ps_cable_callback = switch_data.ps_cable_cb;
+#endif
 #endif
 	if (pdata->init_callback)
 		pdata->init_callback();

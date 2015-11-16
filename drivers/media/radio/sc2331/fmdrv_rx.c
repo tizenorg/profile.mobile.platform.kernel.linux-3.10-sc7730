@@ -492,7 +492,7 @@ int fm_rx_set_frequency(struct fmdrv_ops *fmdev, unsigned int freq_to_set)
             &fmdev->maintask_completion, &resp_buf[0], &resp_len);
     FM_CHECK_SEND_CMD_STATUS(ret);
 
-	fmdev->rx.curr_freq=(resp_buf[3]<<8)+resp_buf[3]; //need to check
+	fmdev->rx.curr_freq=(resp_buf[3]<<8)+resp_buf[2]; //need to check
 	global_frequency=fmdev->rx.curr_freq;
 	pr_info("(fmdev) %s(): global_frequency : %d,resp_buf=%d %d %d\n", __func__, global_frequency,resp_buf[0],resp_buf[1],resp_buf[2]);
     return ret;
@@ -878,7 +878,7 @@ int fm_rx_get_volume(struct fmdrv_ops *fmdev, unsigned short *curr_vol)
 int fm_rx_set_region(struct fmdrv_ops *fmdev,
             unsigned char region_to_set)
 {
-    unsigned char payload = FM_STEREO_AUTO|FM_BAND_REG_WEST;
+    unsigned char payload = FM_REGION_EUR;
 
     int ret = -EPERM;
 
@@ -895,9 +895,11 @@ int fm_rx_set_region(struct fmdrv_ops *fmdev,
     }
     if (region_to_set == FM_REGION_JP)/* set japan region */
     {
-        payload |= FM_BAND_REG_EAST;
+        payload |= FM_REGION_JP;
     }
 
+    pr_info("(fmdrv) %s(): region_to_set : 0x%x\n",
+			__func__,region_to_set );
     /* Send cmd to set the band  */
     ret = fmc_send_cmd(fmdev, FM_SETREGION_SUB_CMD, &payload, sizeof(payload), REG_WR,
         &fmdev->maintask_completion, NULL, NULL);

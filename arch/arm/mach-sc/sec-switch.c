@@ -61,6 +61,12 @@ static struct switch_dev switch_otg = {
 static struct switch_dev switch_jig = {
 	.name = "jig_cable",
 };
+/* Samsung's Power Sharing Cable EP-SG900 */
+#ifdef CONFIG_MUIC_SUPPORT_PS_CABLE
+static struct switch_dev switch_ps_cable = {
+        .name = "ps_cable",
+};
+#endif
 #endif /* CONFIG_SWITCH */
 
 extern struct class *sec_class;
@@ -111,6 +117,12 @@ static void muic_init_cb(void)
 	ret = switch_dev_register(&switch_jig);
 	if (ret < 0)
 		pr_err("%s Failed to register jig switch(%d)\n", __func__, ret);
+
+#ifdef CONFIG_MUIC_SUPPORT_PS_CABLE
+        ret = switch_dev_register(&switch_ps_cable);
+        if (ret < 0)
+                pr_err("%s Failed to register ps_cable switch(%d)\n", __func__, ret);
+#endif
 #endif
 }
 
@@ -210,6 +222,12 @@ static void muic_charger_cb(int cable_type)
 			ist30xxc_tsp_charger_infom(1);
 #endif
 			break;
+#ifdef CONFIG_MUIC_SUPPORT_PS_CABLE
+		case MUIC_SM5504_CABLE_TYPE_SAMSUNG_PS:
+			current_cable_type = POWER_SUPPLY_TYPE_POWER_SHARING;
+			is_jig_on = false;
+			break;
+#endif
 		case MUIC_SM5504_CABLE_TYPE_OTG:
 #if 0 /*def CONFIG_MACH_KIRAN*/
 			current_cable_type = POWER_SUPPLY_TYPE_USB;
@@ -294,6 +312,17 @@ static void muic_set_jig_state(u8 attached)
 #endif
 }
 
+#ifdef CONFIG_MUIC_SUPPORT_PS_CABLE
+static void muic_ps_cable_cb(u8 attached)
+{
+        pr_info("%s: ps_cable: %d\n", __func__, attached);
+
+#ifdef CONFIG_SWITCH
+        switch_set_state(&switch_ps_cable, attached);
+#endif
+}
+#endif
+
 struct sec_switch_data switch_data = {
 	.init_cb = muic_init_cb,
 	.dock_cb = muic_dock_cb,
@@ -301,6 +330,9 @@ struct sec_switch_data switch_data = {
 	.otg_cb  = muic_otg_cb,
 	.cable_chg_cb = muic_charger_cb,
 	.set_jig_state_cb = muic_set_jig_state,
+#ifdef CONFIG_MUIC_SUPPORT_PS_CABLE
+	.ps_cable_cb = muic_ps_cable_cb,
+#endif
 };
 
 static int __init sec_switch_init(void)

@@ -22,6 +22,9 @@
 #include <linux/workqueue.h>
 #include <linux/mutex.h>
 #include <linux/input/sec-input-bridge.h>
+#ifdef CONFIG_SEC_DEBUG
+#include <soc/sprd/sec_debug.h>
+#endif
 #ifdef CONFIG_OF
 #include <linux/of.h>
 #endif
@@ -32,10 +35,11 @@
 enum inpup_mode {
 	INPUT_LOGDUMP = 0,
 	INPUT_SAFEMODE,
+	INPUT_ROTARYDUMP,
 	INPUT_MAX
 };
 
-struct device *sec_input_bridge;
+static struct device *sec_input_bridge;
 
 struct sec_input_bridge {
 	struct sec_input_bridge_platform_data *pdata;
@@ -110,50 +114,65 @@ static void input_bridge_set_ids(struct input_device_id *ids, unsigned int type,
 	__set_bit(type, ids->evbit);
 }
 
-static void input_bridge_work(struct work_struct *work)
+#ifdef CONFIG_SEC_DEBUG
+extern union sec_debug_level_t sec_debug_level;
+#endif
+static void input_bridge_send_uevent(struct sec_input_bridge *bridge, int num)
 {
-	struct sec_input_bridge *bridge = container_of(work,
-						       struct sec_input_bridge,
-						       work);
-	int state, i;
+	struct platform_device *pdev = bridge->dev;
+	struct sec_input_bridge_platform_data *pdata = bridge->pdata;
 	char env_str[16];
 	char *envp[] = { env_str, NULL };
+	int state;
+
+#ifdef CONFIG_SEC_DEBUG
+	if (!sec_debug_level.en.kernel_fault) {
+		dev_info(&pdev->dev,
+			"%s: sec_debug_level = [%d\n",
+			__func__,sec_debug_level.en.kernel_fault);
+		return;
+	}
+#endif
+
+	sprintf(env_str, "%s=%s",
+		pdata->mmap[num].uevent_env_str,
+		pdata->mmap[num].uevent_env_value);
+
+	dev_info(&pdev->dev, "%s: event:[%s]\n", __func__, env_str);
+
+	state =  kobject_uevent_env(&sec_input_bridge->kobj,
+			pdata->mmap[num].uevent_action, envp);
+	if (state != 0) {
+		dev_info(&pdev->dev,
+			"%s: kobject_uevent_env fail[%d]\n",
+			__func__, pdata->mmap[num].uevent_action);
+	} else
+		dev_info(&pdev->dev, "%s: now send uevent\n", __func__);
+}
+
+static void input_bridge_work(struct work_struct *work)
+{
+	struct sec_input_bridge *bridge =
+		container_of(work, struct sec_input_bridge, work);
+	struct sec_input_bridge_platform_data *pdata = bridge->pdata;
+	int i;
 
 	mutex_lock(&bridge->lock);
 
-	for (i = 0; i < bridge->pdata->num_map; i++) {
+	for (i = 0; i < pdata->num_map; i++) {
 		if (bridge->send_uevent_flag & (1 << i)) {
-			if (bridge->pdata->mmap[i].enable_uevent) {
-				printk(KERN_ERR
-				     "!!!!sec-input-bridge: OK!!, KEY input matched , now send uevent!!!!\n");
-				sprintf(env_str, "%s=%s",
-					bridge->pdata->mmap[i].uevent_env_str,
-					bridge->pdata->mmap[i]
-						.uevent_env_value);
-				printk(KERN_ERR
-				    "<kobject_uevent_env for sec-input-bridge>, event: %s\n",
-				    env_str);
-				state =
-				    kobject_uevent_env(&sec_input_bridge->kobj,
-						       bridge->pdata->mmap[i].
-						       uevent_action, envp);
-				if (state != 0)
-					printk(KERN_ERR
-					       "<error, kobject_uevent_env fail> with action : %d\n",
-					       bridge->pdata->mmap[i].
-					       uevent_action);
+			if (pdata->mmap[i].enable_uevent)
+				input_bridge_send_uevent(bridge, i);
+			if (pdata->mmap[i].pre_event_func) {
+				pdata->mmap[i].pre_event_func
+					(pdata->event_data);
 			}
-			if (bridge->pdata->mmap[i].pre_event_func) {
-				bridge->pdata->mmap[i].
-				pre_event_func(bridge->pdata->event_data);
-			}
-
 			bridge->send_uevent_flag &= ~(1 << i);
 		}
 	}
 
-	if (bridge->pdata->lcd_warning_func)
-		bridge->pdata->lcd_warning_func();
+	if (pdata->lcd_warning_func)
+		pdata->lcd_warning_func();
 
 	mutex_unlock(&bridge->lock);
 
@@ -183,34 +202,59 @@ static void input_bridge_check_safemode(struct input_handle *handle, unsigned in
 	struct sec_input_bridge_platform_data *pdata = sec_bridge->pdata;
 	struct sec_input_bridge_mmap *mmap = &pdata->mmap[INPUT_SAFEMODE];
 	struct sec_input_bridge_mkey *mkey_map = mmap->mkey_map;
-	static int first_power_press = true;
-	static int first_power_release = true;
-
-	/* in probe time of the powerkey, powerkey press/release event is released */
-	if (code == KEY_POWER) {
-		if ((first_power_press == true) && (value == 1)) {
-			first_power_press = false;
-			dev_info(&sec_bridge->dev->dev,
-				"%s: it is ignored the first powerkey press.\n", __func__);
-			return;
-		} else if ((first_power_release == true) && (value == 0)) {
-			first_power_press = false;
-			dev_info(&sec_bridge->dev->dev,
-				"%s: it is ignored the first powerkey release.\n", __func__);
-			return;
-		}
-	}
 
 	if ((code != mkey_map[0].code) || (value != mkey_map[0].type)) {
 		sec_bridge->safemode_flag = false;
 		dev_info(&sec_bridge->dev->dev,
 			"%s: safemode_flag is disabled.\n", __func__);
-	} else {
+	}
+	else {
 		mod_timer(&sec_bridge->safemode_timer,\
 				jiffies + msecs_to_jiffies(SAFEMODE_TIMEOUT));
 		dev_info(&sec_bridge->dev->dev, "%s: timer is set. (%dms)\n",
 					__func__, SAFEMODE_TIMEOUT);
 	}
+}
+
+static void input_bridge_check_rotarydump(struct input_handle *handle, unsigned int type,
+			       unsigned int code, int value)
+{
+	struct input_handler *sec_bridge_handler = handle->handler;
+	struct sec_input_bridge *sec_bridge = sec_bridge_handler->private;
+	struct sec_input_bridge_platform_data *pdata = sec_bridge->pdata;
+	struct sec_input_bridge_mmap *mmap = &pdata->mmap[INPUT_ROTARYDUMP];
+
+	if (mmap->mkey_map[sec_bridge->check_index[INPUT_ROTARYDUMP]].type == type) {
+		if (type == EV_KEY) {
+			if (mmap->mkey_map[sec_bridge->check_index[INPUT_ROTARYDUMP]].code == code) {
+				sec_bridge->check_index[INPUT_ROTARYDUMP] = value;
+			} else
+				goto out;
+		} else if (type == EV_REL) {
+			if (mmap->mkey_map[sec_bridge->check_index[INPUT_ROTARYDUMP]].code == code) {
+				sec_bridge->check_index[INPUT_ROTARYDUMP]++;
+				if ((sec_bridge->check_index[INPUT_ROTARYDUMP]) >= mmap->num_mkey) {
+					sec_bridge->send_uevent_flag |= (1 << INPUT_ROTARYDUMP);
+					schedule_work(&sec_bridge->work);
+					goto out;
+				}
+			} else if (code == REL_X) {
+				return;
+			} else {
+				goto out;
+			}
+		} else {
+			goto out;
+		}
+	} else {
+		goto out;
+	}
+
+	return;
+
+out:
+	sec_bridge->check_index[INPUT_ROTARYDUMP] = 0;
+	return;
 }
 
 static void input_bridge_check_logdump(struct input_handle *handle, unsigned int type,
@@ -248,10 +292,6 @@ static void input_bridge_event(struct input_handle *handle, unsigned int type,
 	struct sec_input_bridge *sec_bridge = sec_bridge_handler->private;
 	int rep_check;
 
-	if ((code != KEY_VOLUMEDOWN) && (code != KEY_VOLUMEUP) &&
-	    (code != KEY_POWER) && (code != KEY_MENU))
-		return;
-
 	rep_check = test_bit(EV_REP, sec_bridge_handler->id_table->evbit);
 	rep_check = (rep_check << 1) | 1;
 
@@ -263,8 +303,15 @@ static void input_bridge_event(struct input_handle *handle, unsigned int type,
 		if (sec_bridge->safemode_flag == SAFEMODE_INIT)
 			input_bridge_check_safemode
 				    (handle, type, code, value);
+
+		if (code == KEY_POWER)
+			input_bridge_check_rotarydump
+					    (handle, type, code, value);
 		break;
 
+	case EV_REL:
+		input_bridge_check_rotarydump
+				    (handle, type, code, value);
 	default:
 		break;
 	}
@@ -282,7 +329,7 @@ static int input_bridge_check_support_dev (struct input_dev *dev)
 	}
 
 	bridge = dev_get_drvdata(sec_input_bridge);
-	for (i = 0; i < bridge->pdata->num_dev; i++) {
+	for(i = 0; i < bridge->pdata->support_dev_num; i++) {
 		if (!strncmp(dev->name, bridge->pdata->support_dev_name[i],\
 				strlen(dev->name)))
 			return 0;
@@ -298,12 +345,8 @@ static int input_bridge_connect(struct input_handler *handler,
 	struct input_handle *handle;
 	int error;
 
-
-	if (input_bridge_check_support_dev(dev)) {
-		printk(KERN_ERR "%s: unsupport device.[%s]",
-			__func__, dev->name);
+	if (input_bridge_check_support_dev(dev))
 		return -ENODEV;
-	    }
 
 	handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
 	if (!handle)
@@ -332,6 +375,8 @@ static int input_bridge_connect(struct input_handler *handler,
 		return error;
 	}
 
+	printk(KERN_INFO "%s: connected %s.\n", __func__, dev->name);
+
 	return 0;
 }
 
@@ -357,8 +402,9 @@ static int sec_input_bridge_parse_dt(struct device *dev,
 	struct property *prop;
 	enum mkey_check_option option;
 	unsigned int *map;
+	unsigned int *type;
 	const char *out_prop;
-	int i, j, rc, map_size;
+	int i, j, rc, map_size, type_size;
 
 	rc = of_property_read_u32(np, "input_bridge,num_map",\
 			(unsigned int *)&pdata->num_map);
@@ -385,7 +431,7 @@ static int sec_input_bridge_parse_dt(struct device *dev,
 	for (i = 0; i < pdata->num_map; i++) {
 		rc = of_property_read_string_index(np, "input_bridge,map_codes", i, &out_prop);
 		if (rc < 0) {
-			dev_err(dev, "failed to get %d props string.\n", i);
+			dev_err(dev, "failed to get %d map_codes string.[%s]\n", i, out_prop);
 			goto error;
 
 		}
@@ -408,6 +454,33 @@ static int sec_input_bridge_parse_dt(struct device *dev,
 			dev_err(dev, "Unable to read %s\n", out_prop);
 			goto error;
 		}
+
+		rc = of_property_read_string_index(np, "input_bridge,map_types", i, &out_prop);
+		if (rc < 0) {
+			dev_err(dev, "failed to get %d map_types string.[%s]\n", i, out_prop);
+			goto error;
+
+		}
+		prop = of_find_property(np, out_prop, NULL);
+		if (!prop) {
+			rc = -EINVAL;
+			goto error;
+		}
+
+		type_size = prop->length / sizeof(unsigned int);
+		type = devm_kzalloc(dev, sizeof(unsigned int)*type_size, GFP_KERNEL);
+		if (!type) {
+			dev_err(dev, "%s: Failed to allocate key memory.\n", __func__);
+			rc = -ENOMEM;
+			goto error;
+		}
+
+		rc = of_property_read_u32_array(np, out_prop, type, type_size);
+		if (rc && (rc != -EINVAL)) {
+			dev_err(dev, "Unable to read %s\n", out_prop);
+			goto error;
+		}
+
 		pdata->mmap[i].mkey_map = devm_kzalloc(dev,
 					sizeof(struct sec_input_bridge_mkey)*\
 					map_size, GFP_KERNEL);
@@ -418,20 +491,20 @@ static int sec_input_bridge_parse_dt(struct device *dev,
 		}
 
 		for (j = 0; j < map_size; j++) {
-			pdata->mmap[i].mkey_map[j].type = option;
+			pdata->mmap[i].mkey_map[j].type = type[j];
 			pdata->mmap[i].mkey_map[j].code = map[j];
 		}
 
 		rc = of_property_read_string_index(np, "input_bridge,env_str", i, &out_prop);
 		if (rc < 0) {
-			dev_err(dev, "failed to get %d props string\n", i);
+			dev_err(dev, "failed to get %d env_str string\n", i);
 			goto error;
 		}
 		pdata->mmap[i].uevent_env_str = (char *)out_prop;
 
 		rc = of_property_read_string_index(np, "input_bridge,env_value", i, &out_prop);
 		if (rc) {
-			dev_err(dev, "failed to get %d props string\n", i);
+			dev_err(dev, "failed to get %d env_value string\n", i);
 			goto error;
 		}
 		pdata->mmap[i].uevent_env_value = (char *)out_prop;
@@ -447,15 +520,15 @@ static int sec_input_bridge_parse_dt(struct device *dev,
 		}
 	}
 
-	rc = of_property_read_u32(np, "input_bridge,num_dev",\
-			(unsigned int *)&pdata->num_dev);
+	rc = of_property_read_u32(np, "input_bridge,dev_num",\
+			(unsigned int *)&pdata->support_dev_num);
 	if (rc) {
-		dev_err(dev, "failed to get num_dev.\n");
+		dev_err(dev, "failed to get support_dev_num.\n");
 		goto error;
 	}
 
 	pdata->support_dev_name = devm_kzalloc(dev,
-			sizeof(char *)*pdata->num_dev, GFP_KERNEL);
+			sizeof(char*)*pdata->support_dev_num, GFP_KERNEL);
 	if (!pdata->support_dev_name) {
 		dev_err(dev, "%s: Failed to allocate memory."\
 			"[support_dev_name]\n", __func__);
@@ -463,7 +536,7 @@ static int sec_input_bridge_parse_dt(struct device *dev,
 		goto error;
 	}
 
-	for (i = 0; i < pdata->num_dev; i++) {
+	for (i = 0; i < pdata->support_dev_num; i++) {
 		rc = of_property_read_string_index(np, "input_bridge,dev_name_str", i, &out_prop);
 		if (rc < 0) {
 			dev_err(dev, "failed to get %d dev_name_str string\n", i);
@@ -477,7 +550,7 @@ static int sec_input_bridge_parse_dt(struct device *dev,
 
 		dev_info(dev, "%s: pdata->mmap[%d].num_mkey=[%d]\n",
 				__func__, i, pdata->mmap[i].num_mkey);
-		for (j = 0; j < pdata->mmap[i].num_mkey; j++) {
+		for(j = 0; j < pdata->mmap[i].num_mkey; j++) {
 			dev_info(dev,
 				"%s: pdata->mmap[%d].mkey_map[%d].type=[%d]\n",
 				__func__, i, j, pdata->mmap[i].mkey_map[j].type);
@@ -497,10 +570,10 @@ static int sec_input_bridge_parse_dt(struct device *dev,
 		dev_info(dev, "%s: pdata->mmap[%d].uevent_action=[%d]\n",
 				__func__, i, pdata->mmap[i].uevent_action);
 	}
-	dev_info(dev, "%s: pdata->num_dev=[%d]\n", __func__, pdata->num_dev);
-	for (i = 0; i < pdata->num_dev; i++)
+	dev_info(dev, "%s: pdata->support_dev_num=[%d]\n", __func__, pdata->support_dev_num);
+	for (i = 0; i < pdata->support_dev_num; i++)
 		dev_info(dev, "%s: pdata->support_dev_name[%d] = [%s]\n",
-			__func__, i, pdata->support_dev_name[i]);
+			__func__, i, pdata->support_dev_name [i]);
 #endif
 	return 0;
 error:
@@ -579,7 +652,7 @@ static int sec_input_bridge_probe(struct platform_device *pdev)
 		state = -ENOMEM;
 		goto error_2;
 	}
-	memset(input_bridge_ids, 0x00, sizeof(*input_bridge_ids));
+	memset(input_bridge_ids, 0x00, sizeof(input_bridge_ids));
 
 	for (i = 0, k = 0; i < pdata->num_map; i++) {
 		for (j = 0; j < pdata->mmap[i].num_mkey; j++) {
@@ -591,12 +664,6 @@ static int sec_input_bridge_probe(struct platform_device *pdev)
 
 	input_bridge_handler.private = bridge;
 	input_bridge_handler.id_table = input_bridge_ids;
-
-	state = input_register_handler(&input_bridge_handler);
-	if (state) {
-		dev_err(&pdev->dev, "Failed to register input_bridge_handler\n");
-		goto error_3;
-	}
 
 	bridge->dev = pdev;
 	bridge->pdata = pdata;
@@ -616,6 +683,14 @@ static int sec_input_bridge_probe(struct platform_device *pdev)
 		goto error_3;
 	}
 	dev_set_drvdata(sec_input_bridge, bridge);
+
+	state = input_register_handler(&input_bridge_handler);
+	if (state) {
+		dev_err(&pdev->dev, "Failed to register input_bridge_handler\n");
+		goto error_3;
+	}
+
+	dev_info(&pdev->dev, "%s: done.\n", __func__);
 
 	return 0;
 

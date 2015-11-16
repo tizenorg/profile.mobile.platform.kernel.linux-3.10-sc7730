@@ -31,8 +31,8 @@ struct sec_input_bridge_platform_data {
 
 	struct sec_input_bridge_mmap *mmap;
 	unsigned int num_map;
-	unsigned int num_dev;
 	char **support_dev_name;
+	unsigned int support_dev_num;
 	void (*lcd_warning_func)(void);
 };
 

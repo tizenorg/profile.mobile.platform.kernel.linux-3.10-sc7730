@@ -1564,6 +1564,15 @@ static ssize_t store_cmd(struct device *dev, struct device_attribute
 		}
 	}
 
+	if (data->touch_stopped) {
+		set_default_result(sec);
+		sec->cmd_state = CMD_STATE_FAIL;
+		snprintf(msg, sizeof(msg), "%s", "NG");
+		set_cmd_result(sec, msg, strnlen(msg, sizeof(msg)));
+		tsp_info("%s: TSP is not enabled.\n", __func__);
+		goto err_out;
+	}
+
 	/* parsing parameters */
 	if (cur && cmd_found) {
 		cur++;

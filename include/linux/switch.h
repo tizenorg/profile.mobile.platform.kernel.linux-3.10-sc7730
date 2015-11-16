@@ -57,5 +57,8 @@ struct sec_switch_data {
 	void (*otg_cb)  (u8 attached);
 	void (*cable_chg_cb) (int cable_type);
 	void (*set_jig_state_cb) (u8 jig_attached);
+#ifdef CONFIG_MUIC_SUPPORT_PS_CABLE
+	void (*ps_cable_cb) (u8 attached);
+#endif
 };
 #endif /* __LINUX_SWITCH_H__ */
