@@ -157,6 +157,14 @@ static int sec_fg_get_property(struct power_supply *psy,
 				sec_fg_get_atomic_capacity(fuelgauge, val);
 		}
 		break;
+	case POWER_SUPPLY_PROP_STATUS:
+		/* TODO */
+		val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		/* TODO */
+		val->intval = 0;
+		break;
 	default:
 		return -EINVAL;
 	}
