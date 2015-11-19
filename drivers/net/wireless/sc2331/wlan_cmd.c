@@ -82,6 +82,12 @@ static cmd_t g_cmd_table[] = {
 	CMD_ITEM(WIFI_EVENT_REPORT_CQM_RSSI_HIGH),
 	CMD_ITEM(WIFI_EVENT_REPORT_CQM_RSSI_LOSS_BEACON),
 	CMD_ITEM(WIFI_EVENT_MLME_TX_STATUS),
+	CMD_ITEM(WIFI_CMD_ADD_SOFTAP_BLACKLIST),
+	CMD_ITEM(WIFI_CMD_DEL_SOFTAP_BLACKLIST),
+	CMD_ITEM(WIFI_CMD_ADD_WHITELIST),
+	CMD_ITEM(WIFI_CMD_DEL_WHITELIST),
+	CMD_ITEM(WIFI_CMD_ENABLE_WHITELIST),
+	CMD_ITEM(WIFI_CMD_DISABLE_WHITELIST),
 	CMD_ITEM(WIFI_EVENT_REPORT_VERSION),
 };
 
@@ -323,6 +329,122 @@ int wlan_cmd_disassoc(unsigned char vif_id, const unsigned char *mac_addr,
 
 	wlan_cmd_send_recv(vif_id, (unsigned char *)ptr, dataLen,
 			   WIFI_CMD_DISASSOC, CMD_WAIT_TIMEOUT);
+
+	return 0;
+}
+
+int wlan_cmd_add_blacklist(unsigned char vif_id, u8 *mac_addr)
+{
+	int dataLen = 0;
+	struct wlan_cmd_blacklist *ptr = NULL;
+
+	dataLen = sizeof(struct wlan_cmd_blacklist);
+	ptr = kzalloc(dataLen, GFP_KERNEL);
+	if (NULL != mac_addr)
+		memcpy(&(ptr->mac[0]), mac_addr, 6);
+
+	wlan_cmd_send_recv(vif_id, (unsigned char *)ptr, dataLen,
+			   WIFI_CMD_ADD_SOFTAP_BLACKLIST, CMD_WAIT_TIMEOUT);
+
+	return 0;
+}
+
+int wlan_cmd_del_blacklist(unsigned char vif_id, u8 *mac_addr)
+{
+	int dataLen = 0;
+	struct wlan_cmd_blacklist *ptr = NULL;
+
+	dataLen = sizeof(struct wlan_cmd_blacklist);
+	ptr = kzalloc(dataLen, GFP_KERNEL);
+	if (NULL != mac_addr)
+		memcpy(&(ptr->mac[0]), mac_addr, 6);
+
+	wlan_cmd_send_recv(vif_id, (unsigned char *)ptr, dataLen,
+			   WIFI_CMD_DEL_SOFTAP_BLACKLIST, CMD_WAIT_TIMEOUT);
+
+	return 0;
+}
+
+int wlan_cmd_add_whitelist(unsigned char vif_id, u8 *mac_addr)
+{
+	int dataLen = 0;
+	struct wlan_cmd_whitelist *ptr = NULL;
+
+	if (mac_addr == NULL) {
+		printke("mac addr is NULL\n");
+		return -1;
+	}
+
+	dataLen = sizeof(struct wlan_cmd_whitelist);
+	ptr = kzalloc(dataLen, GFP_KERNEL);
+	if (NULL == ptr) {
+		printke("%s alloc memory failed\n", __func__);
+		return -1;
+	}
+
+	memcpy(&(ptr->mac[0]), mac_addr, 6);
+
+	wlan_cmd_send_recv(vif_id, (unsigned char *)ptr, dataLen,
+			   WIFI_CMD_ADD_WHITELIST, CMD_WAIT_TIMEOUT);
+
+	return 0;
+}
+
+int wlan_cmd_del_whitelist(unsigned char vif_id, u8 *mac_addr)
+{
+	int dataLen = 0;
+	struct wlan_cmd_whitelist *ptr = NULL;
+
+	if (mac_addr == NULL) {
+		printke("mac addr is NULL\n");
+		return -1;
+	}
+
+	dataLen = sizeof(struct wlan_cmd_whitelist);
+	ptr = kzalloc(dataLen, GFP_KERNEL);
+	if (NULL == ptr) {
+		printke("%s alloc memory failed\n", __func__);
+		return -1;
+	}
+
+	memcpy(&(ptr->mac[0]), mac_addr, 6);
+
+	wlan_cmd_send_recv(vif_id, (unsigned char *)ptr, dataLen,
+			   WIFI_CMD_DEL_WHITELIST, CMD_WAIT_TIMEOUT);
+
+	return 0;
+}
+
+int wlan_cmd_enable_whitelist(unsigned char vif_id, u8 *mac_addr)
+{
+	if (mac_addr == NULL) {
+		mac_addr = kmalloc(1, GFP_KERNEL);
+		if (IS_ERR(mac_addr))
+			return -ENOMEM;
+
+		mac_addr[0] = 0;
+	}
+
+	wlan_cmd_send_recv(vif_id, (unsigned char *)mac_addr,
+			   6 * mac_addr[0] + 1, WIFI_CMD_ENABLE_WHITELIST,
+			   CMD_WAIT_TIMEOUT);
+
+	return 0;
+}
+
+int wlan_cmd_disable_whitelist(unsigned char vif_id, u8 *mac_addr)
+{
+	if (mac_addr == NULL) {
+		mac_addr = kmalloc(1, GFP_KERNEL);
+		if (IS_ERR(mac_addr))
+			return -ENOMEM;
+
+		mac_addr[0] = 0;
+	}
+
+	wlan_cmd_send_recv(vif_id, (unsigned char *)mac_addr,
+			   6 * mac_addr[0] + 1, WIFI_CMD_DISABLE_WHITELIST,
+			   CMD_WAIT_TIMEOUT);
 
 	return 0;
 }

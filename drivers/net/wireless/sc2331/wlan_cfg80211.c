@@ -2448,6 +2448,62 @@ static int wlan_change_beacon(wlan_vif_t *vif,
 	return ret;
 }
 
+static int wlan_cfg80211_set_mac_acl(struct wiphy *wiphy,
+				     struct net_device *ndev,
+				     const struct cfg80211_acl_data *acl)
+{
+	int index, ret, macnum;
+	int macmode = MACLIST_MODE_DISABLED;
+	unsigned char *cmdData  = NULL;
+	char mac[ETH_ALEN] = {0};
+
+	wlan_vif_t  *vif = ndev_to_vif(ndev);
+	unsigned char  vif_id = vif->id;
+
+	if (!acl || acl->n_acl_entries == 0 || !acl->mac_addrs) {
+		printkd("no acl data or no mac address\n");
+		return  0;
+	}
+
+	/* get the MAC filter mode */
+	if (acl && acl->acl_policy == NL80211_ACL_POLICY_DENY_UNLESS_LISTED) {
+		macmode = MACLIST_MODE_WHITELIST;
+	} else if (acl && acl->acl_policy ==
+		   NL80211_ACL_POLICY_ACCEPT_UNLESS_LISTED) {
+		macmode = MACLIST_MODE_BLACKLIST;
+	} else {
+		printkd("Invalid acl policy\n");
+		return -EINVAL;
+	}
+
+	macnum = acl->n_acl_entries;
+	printkd("the num for mac : %d\n", macnum);
+	if (macnum < 0 || macnum > MAX_NUM_MAC_FILT)
+		return -EINVAL;
+
+	if (macmode == MACLIST_MODE_WHITELIST) {
+		cmdData = kzalloc(macnum * ETH_ALEN + 1, GFP_KERNEL);
+		if (IS_ERR(cmdData))
+			return  -ENOMEM;
+		cmdData[0] = macnum;
+		for (index = 0; index < macnum; index++) {
+			printkd("the mac is : %pM\n", &acl->mac_addrs[index]);
+			memcpy(cmdData + index * ETH_ALEN + 1,
+			       &acl->mac_addrs[index], ETH_ALEN);
+		}
+		ret = wlan_cmd_enable_whitelist(vif->id, cmdData);
+	}
+
+	if (macmode == MACLIST_MODE_BLACKLIST) {
+		for (index = 0; index < macnum; index++) {
+			memcpy(mac, &acl->mac_addrs[index], ETH_ALEN);
+			printkd("add blacklist mac is : %pM\n", mac);
+			ret = wlan_cmd_add_blacklist(vif->id, mac);
+		}
+	}
+	return ret;
+}
+
 static int itm_wlan_start_ap(wlan_vif_t *vif,
 			     struct cfg80211_beacon_data *beacon)
 {
@@ -2532,6 +2588,7 @@ static int wlan_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 {
 	wlan_vif_t *vif;
 	unsigned char vif_id;
+	int ret;
 	vif = ndev_to_vif(ndev);
 	vif_id = vif->id;
 	if (ITM_NONE_MODE == vif->mode)
@@ -2544,6 +2601,13 @@ static int wlan_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 	printkd("[cfg80211] \t ==>>>%s\n", __func__);
 	memcpy(vif->cfg80211.ssid, info->ssid, info->ssid_len);
 	vif->cfg80211.ssid_len = info->ssid_len;
+	if (info->acl) {
+		ret = wlan_cfg80211_set_mac_acl(wiphy, ndev, info->acl);
+		if (ret) {
+			printkd("set acl failed when start ap\n");
+			return ret;
+		}
+	}
 	return itm_wlan_start_ap(vif, &info->beacon);
 }
 
@@ -2875,6 +2939,7 @@ static struct cfg80211_ops wlan_cfg80211_ops = {
 	.change_virtual_intf = wlan_cfg80211_change_iface,
 	.update_ft_ies = wlan_cfg80211_update_ft_ies,
 	.set_cqm_rssi_config = wlan_cfg80211_set_cqm_rssi_config,
+	.set_mac_acl = wlan_cfg80211_set_mac_acl,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 	.libertas_set_mesh_channel = wlan_cfg80211_set_channel,
 #else
@@ -2910,6 +2975,7 @@ static void init_wiphy_parameters(struct wiphy *wiphy)
 	/* set AP SME flag, also needed by STA mode? */
 	wiphy->flags |= WIPHY_FLAG_HAVE_AP_SME;
 	wiphy->ap_sme_capa = 1;
+	wiphy->max_acl_mac_addrs = MAX_NUM_MAC_FILT;
 
 	wiphy->software_iftypes =
 	    BIT(NL80211_IFTYPE_ADHOC) | BIT(NL80211_IFTYPE_STATION) |

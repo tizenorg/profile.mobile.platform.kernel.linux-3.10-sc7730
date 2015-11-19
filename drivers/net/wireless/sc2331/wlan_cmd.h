@@ -61,6 +61,12 @@ enum ITM_HOST_TROUT3_CMD_LIST {
 	WIFI_CMD_SET_CQM_RSSI,
 	WIFI_CMD_MULTICAST_FILTER,
 	WIFI_CMD_DISASSOC,
+	WIFI_CMD_SDIO_CHN_FLUSH = 47,
+	WIFI_CMD_COMMON_DATA,
+	WIFI_CMD_ADD_WHITELIST,
+	WIFI_CMD_DEL_WHITELIST,
+	WIFI_CMD_ENABLE_WHITELIST,
+	WIFI_CMD_DISABLE_WHITELIST,
 	WIFI_CMD_MAX,
 
 	WIFI_EVENT_CONNECT = 128,
@@ -322,6 +328,14 @@ struct wlan_cmd_disassoc {
 	unsigned short reason_code;
 } __attribute__ ((packed));
 
+struct wlan_cmd_blacklist {
+	unsigned char mac[6];
+} __attribute__ ((packed));
+
+struct wlan_cmd_whitelist {
+	unsigned char mac[6];
+} __attribute__ ((packed));
+
 extern int wlan_cmd_send_recv(unsigned char vif_id, unsigned char *pData,
 			      int len, int type, int timeout);
 extern int wlan_cmd_start_ap(unsigned char vif_id, unsigned char *beacon,
@@ -414,4 +428,12 @@ extern int wlan_cmd_cmq_rssi(unsigned char vif_id, s32 rssi_thold,
 extern int wlan_cmd_disassoc(unsigned char vif_id,
 			     const unsigned char *mac_addr,
 			     unsigned short reason_code);
+extern int wlan_cmd_add_blacklist(unsigned char vif_id,
+				  u8 *mac_addr);
+extern int wlan_cmd_del_blacklist(unsigned char vif_id,
+				  u8 *mac_addr);
+extern int wlan_cmd_enable_whitelist(unsigned char vif_id, u8 *mac_addr);
+extern int wlan_cmd_disable_whitelist(unsigned char vif_id, u8 *mac_addr);
+extern int wlan_cmd_del_whitelist(unsigned char vif_id, u8 *mac_addr);
+extern int wlan_cmd_add_whitelist(unsigned char vif_id, u8 *mac_addr);
 #endif
