@@ -507,6 +507,9 @@ static int sec_chg_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		val->intval = charger->voltage_max;
+		break;
 	default:
 		return -EINVAL;
 	}

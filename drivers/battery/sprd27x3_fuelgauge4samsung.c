@@ -346,11 +346,24 @@ bool sec_hal_fg_get_property(fuelgauge_variable_t * fg_var,
 		}
 		break;
 
+	case POWER_SUPPLY_PROP_PRESENT:
+		/* TODO */
+		break;
+
+	case POWER_SUPPLY_PROP_ENERGY_NOW:
+		/* TODO */
+		break;
+
 	/* Battery Temperature */
 	case POWER_SUPPLY_PROP_TEMP:
+		/* TODO */
+		break;
 
 	/* Target Temperature */
 	case POWER_SUPPLY_PROP_TEMP_AMBIENT:
+		/* TODO */
+		break;
+
 	default:
 		return false;
 	}
