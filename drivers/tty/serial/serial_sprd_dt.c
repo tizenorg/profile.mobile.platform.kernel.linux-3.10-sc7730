@@ -452,7 +452,12 @@ static void serial_sprd_reset(struct uart_port *port)
 
 static void serial_sprd_shutdown(struct uart_port *port)
 {
-	serial_sprd_reset(port);
+	if (port->line == 1) {
+		serial_out(port, ARM_UART_IEN, 0x0);
+		serial_out(port, ARM_UART_ICLR, 0xffffffff);
+	} else {
+		serial_sprd_reset(port);
+	}
 	free_irq(port->irq, port);
 }
 
