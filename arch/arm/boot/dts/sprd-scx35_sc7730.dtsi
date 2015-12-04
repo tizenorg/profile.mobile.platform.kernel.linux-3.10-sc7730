@@ -59,5 +59,12 @@
 		freq-range-max = <2>;
 		freq-range-min = <1>;
 	};
+
+       pmu {
+		compatible = "arm,cortex-a7-pmu";
+		interrupts = <0 92 0x0>, <0 93 0x0>, <0 94 0x0>, <0 95 0x0>;
+
+
+       };
 };
 
