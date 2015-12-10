@@ -485,61 +485,42 @@ int sprd_drm_gem_create_index_ioctl(struct drm_device *dev, void *data,
 	return 0;
 }
 
-int sprd_drm_gem_prime_handle_to_fd(struct drm_device *dev,
-		struct drm_file *file_priv, uint32_t handle,
-		uint32_t flags, int *prime_fd)
+struct dma_buf *sprd_prime_export(struct drm_device *dev,
+				  struct drm_gem_object *obj, int flags)
 {
-	int ret = 0;
-	struct sprd_drm_gem_obj *sprd_gem_obj;
-	struct drm_gem_object *obj;
-	struct sprd_drm_gem_buf *buf;
-	struct sprd_drm_private *private;
+	struct sprd_drm_private *private = dev->dev_private;
+	struct sprd_drm_gem_obj *sprd_gem_obj = to_sprd_gem_obj(obj);
+	struct sprd_drm_gem_buf *buf = sprd_gem_obj->buffer;
+	struct dma_buf *dmabuf;
 
-	if (!handle) {
-		DRM_ERROR("%s: Handle to fd failed. Null handle\n", __func__);
-		return -EINVAL;
-	}
+	dmabuf = ion_share_dma_buf(private->sprd_drm_ion_client,
+				   buf->ion_handle);
+	if (IS_ERR(dmabuf))
+		pr_err("%s: dmabuf is error and dmabuf is %p!\n",
+				__func__, dmabuf);
 
-	obj = drm_gem_object_lookup(dev, file_priv, handle);
-	if (!obj) {
-		DRM_ERROR("failed to lookup gem object.\n");
-		return -EINVAL;
-	}
-
-	private = dev->dev_private;
-	sprd_gem_obj = to_sprd_gem_obj(obj);
-	buf = sprd_gem_obj->buffer;
-	*prime_fd = ion_share_dma_buf_fd(private->sprd_drm_ion_client,
-					buf->ion_handle);
-	drm_gem_object_unreference(obj);
-
-	if (*prime_fd == -EINVAL) {
-		prime_fd = NULL;
-		return -EINVAL;
-	}
-
-	return ret;
+	return dmabuf;
 }
 
-int sprd_drm_gem_prime_fd_to_handle(struct drm_device *dev,
-		struct drm_file *file_priv, int prime_fd, uint32_t *handle)
+struct drm_gem_object *sprd_prime_import(struct drm_device *dev,
+					 struct dma_buf *dma_buf)
 {
 	struct ion_handle *ion_handle;
 	struct sprd_drm_gem_obj *sprd_gem_obj;
 	unsigned long size;
 	struct sprd_drm_gem_buf *buf = NULL;
 	unsigned int i = 0, nr_pages = 0, heap_id;
-	int ret = 0, gem_handle;
+	int ret = 0;
 	struct sprd_drm_private *private;
 	struct scatterlist *sg = NULL;
 	struct drm_gem_object *obj;
 	unsigned long sgt_size;
 
 	private = dev->dev_private;
-	ion_handle = ion_import_dma_buf(private->sprd_drm_ion_client, prime_fd);
+	ion_handle = get_ion_handle_from_dmabuf(private->sprd_drm_ion_client, dma_buf);
 	if (IS_ERR_OR_NULL(ion_handle)) {
 		DRM_ERROR("Unable to import dmabuf\n");
-		return -EINVAL;
+		return ERR_PTR(-EINVAL);
 	}
 
 	ion_handle_get_size(private->sprd_drm_ion_client,
@@ -629,14 +610,7 @@ int sprd_drm_gem_prime_fd_to_handle(struct drm_device *dev,
 	DRM_DEBUG_KMS("dma_addr(0x%lx), size(0x%lx)\n",
 		(unsigned long)buf->dma_addr, buf->size);
 
-	ret = sprd_drm_gem_handle_create(&sprd_gem_obj->base, file_priv,
-					&gem_handle);
-	if (ret) {
-		sprd_drm_gem_destroy(sprd_gem_obj);
-		return ret;
-	}
-	*handle = gem_handle;
-	return 0;
+	return obj;
 
 err_buf:
 	buf->dma_addr = (dma_addr_t)NULL;
@@ -652,7 +626,7 @@ err_fini_buf:
 err:
 	ion_free(private->sprd_drm_ion_client, ion_handle);
 
-	return ret;
+	return ERR_PTR(ret);
 }
 
 void *sprd_drm_gem_get_dma_addr(struct drm_device *dev,

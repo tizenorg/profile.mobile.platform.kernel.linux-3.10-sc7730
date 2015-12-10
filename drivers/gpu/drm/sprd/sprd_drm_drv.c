@@ -638,11 +638,14 @@ static struct drm_driver sprd_drm_driver = {
 	.dumb_create		= sprd_drm_gem_dumb_create,
 	.dumb_map_offset	= sprd_drm_gem_dumb_map_offset,
 	.dumb_destroy		= sprd_drm_gem_dumb_destroy,
-	.prime_handle_to_fd	= sprd_drm_gem_prime_handle_to_fd,
-	.prime_fd_to_handle	= sprd_drm_gem_prime_fd_to_handle,
+	.prime_handle_to_fd	= drm_gem_prime_handle_to_fd,
+	.prime_fd_to_handle	= drm_gem_prime_fd_to_handle,
 #ifdef CONFIG_DRM_SPRD_DMABUF
 	.gem_prime_export	= sprd_dmabuf_prime_export,
 	.gem_prime_import	= sprd_dmabuf_prime_import,
+#else
+	.gem_prime_export	= sprd_prime_export,
+	.gem_prime_import	= sprd_prime_import,
 #endif
 	.ioctls			= sprd_ioctls,
 	.fops			= &sprd_drm_driver_fops,

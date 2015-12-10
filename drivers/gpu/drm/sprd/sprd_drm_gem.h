@@ -117,13 +117,11 @@ int sprd_drm_gem_create_ioctl(struct drm_device *dev, void *data,
 int sprd_drm_gem_create_index_ioctl(struct drm_device *dev, void *data,
 				struct drm_file *file_priv);
 
-int sprd_drm_gem_prime_handle_to_fd(struct drm_device *dev,
-		struct drm_file *file_priv, uint32_t handle, uint32_t flags,
-		int *prime_fd);
+struct dma_buf *sprd_prime_export(struct drm_device *dev,
+				  struct drm_gem_object *obj, int flags);
 
-int sprd_drm_gem_prime_fd_to_handle(struct drm_device *dev,
-		struct drm_file *file_priv, int prime_fd, uint32_t *handle);
-
+struct drm_gem_object *sprd_prime_import(struct drm_device *dev,
+					 struct dma_buf *dma_buf);
 
 /*
  * get dma address from gem handle and this function could be used for
