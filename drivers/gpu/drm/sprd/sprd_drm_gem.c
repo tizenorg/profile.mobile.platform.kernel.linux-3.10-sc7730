@@ -19,6 +19,8 @@
 #include <linux/shmem_fs.h>
 #include <drm/sprd_drm.h>
 #include <linux/sprd_iommu.h>
+#include <linux/dma-buf.h>
+#include <drm/drmP.h>
 
 #include "video/ion_sprd.h"
 #include "sprd_drm_drv.h"
@@ -506,18 +508,30 @@ int sprd_drm_gem_prime_handle_to_fd(struct drm_device *dev,
 		return -EINVAL;
 	}
 
-	private = dev->dev_private;
-	sprd_gem_obj = to_sprd_gem_obj(obj);
-	buf = sprd_gem_obj->buffer;
-	*prime_fd = ion_share_dma_buf_fd(private->sprd_drm_ion_client,
-					buf->ion_handle);
-	drm_gem_object_unreference(obj);
+	mutex_lock(&file_priv->prime.lock);
+	if (obj->export_dma_buf) {
+		if (!drm_prime_check_dmabuf_valid(obj->export_dma_buf))
+			goto get_direct;
 
-	if (*prime_fd == -EINVAL) {
-		prime_fd = NULL;
-		return -EINVAL;
+	} else {
+get_direct:
+		private = dev->dev_private;
+		sprd_gem_obj = to_sprd_gem_obj(obj);
+		buf = sprd_gem_obj->buffer;
+		obj->export_dma_buf = ion_share_dma_buf(
+			private->sprd_drm_ion_client, buf->ion_handle);
+		if (IS_ERR_OR_NULL(obj->export_dma_buf)) {
+			obj->export_dma_buf = NULL;
+			prime_fd = NULL;
+			ret = -EINVAL;
+			goto out;
+		}
 	}
-
+	get_dma_buf(obj->export_dma_buf);
+	*prime_fd = dma_buf_fd(obj->export_dma_buf, flags);
+out:
+	drm_gem_object_unreference(obj);
+	mutex_unlock(&file_priv->prime.lock);
 	return ret;
 }
 
