@@ -512,7 +512,6 @@ int sprd_drm_gem_prime_handle_to_fd(struct drm_device *dev,
 	if (obj->export_dma_buf) {
 		if (!drm_prime_check_dmabuf_valid(obj->export_dma_buf))
 			goto get_direct;
-
 	} else {
 get_direct:
 		private = dev->dev_private;
@@ -527,40 +526,51 @@ get_direct:
 			goto out;
 		}
 	}
+	ret = drm_prime_add_buf_handle(&file_priv->prime,
+			obj->export_dma_buf, handle);
+	if (ret) {
+		dma_buf_put(obj->export_dma_buf);
+		obj->export_dma_buf = NULL;
+		prime_fd = NULL;
+		goto out;
+	}
+
 	get_dma_buf(obj->export_dma_buf);
 	*prime_fd = dma_buf_fd(obj->export_dma_buf, flags);
+	DRM_DEBUG_KMS("dmabuf[0x%x] handle[0x%x]\n",
+			(unsigned int)obj->export_dma_buf, handle);
 out:
 	drm_gem_object_unreference(obj);
 	mutex_unlock(&file_priv->prime.lock);
 	return ret;
 }
 
-int sprd_drm_gem_prime_fd_to_handle(struct drm_device *dev,
-		struct drm_file *file_priv, int prime_fd, uint32_t *handle)
+struct sprd_drm_gem_obj *sprd_drm_gem_prime_import(struct drm_device *dev,
+								int *prime_fd)
 {
 	struct ion_handle *ion_handle;
 	struct sprd_drm_gem_obj *sprd_gem_obj;
 	unsigned long size;
 	struct sprd_drm_gem_buf *buf = NULL;
 	unsigned int i = 0, nr_pages = 0, heap_id;
-	int ret = 0, gem_handle;
+	int ret = 0;
 	struct sprd_drm_private *private;
 	struct scatterlist *sg = NULL;
 	struct drm_gem_object *obj;
 	unsigned long sgt_size;
 
 	private = dev->dev_private;
-	ion_handle = ion_import_dma_buf(private->sprd_drm_ion_client, prime_fd);
+	ion_handle = ion_import_dma_buf(private->sprd_drm_ion_client,
+								*prime_fd);
 	if (IS_ERR_OR_NULL(ion_handle)) {
 		DRM_ERROR("Unable to import dmabuf\n");
-		return -EINVAL;
+		return ERR_PTR(-EINVAL);
 	}
 
 	ion_handle_get_size(private->sprd_drm_ion_client,
 					ion_handle, &size, &heap_id);
 	if (size == 0) {
-		DRM_ERROR(
-			"cannot create GEM object from zero size ION buffer\n");
+		DRM_ERROR("cannot create GEM object from zero size buffer\n");
 		ret = -EINVAL;
 		goto err;
 	}
@@ -643,15 +653,7 @@ int sprd_drm_gem_prime_fd_to_handle(struct drm_device *dev,
 	DRM_DEBUG_KMS("dma_addr(0x%lx), size(0x%lx)\n",
 		(unsigned long)buf->dma_addr, buf->size);
 
-	ret = sprd_drm_gem_handle_create(&sprd_gem_obj->base, file_priv,
-					&gem_handle);
-	if (ret) {
-		sprd_drm_gem_destroy(sprd_gem_obj);
-		return ret;
-	}
-	*handle = gem_handle;
-	return 0;
-
+	return sprd_gem_obj;
 err_buf:
 	buf->dma_addr = (dma_addr_t)NULL;
 	buf->sgt = NULL;
@@ -666,6 +668,65 @@ err_fini_buf:
 err:
 	ion_free(private->sprd_drm_ion_client, ion_handle);
 
+	return ERR_PTR(ret);
+}
+
+int sprd_drm_gem_prime_fd_to_handle(struct drm_device *dev,
+		struct drm_file *file_priv, int prime_fd, uint32_t *handle)
+{
+	struct dma_buf *dma_buf;
+	struct drm_gem_object *obj;
+	struct sprd_drm_gem_obj *sprd_gem_obj;
+	int ret = 0, gem_handle;
+
+	dma_buf = dma_buf_get(prime_fd);
+	if (IS_ERR(dma_buf))
+		return PTR_ERR(dma_buf);
+
+	mutex_lock(&file_priv->prime.lock);
+	ret = drm_prime_lookup_buf_handle(&file_priv->prime,
+		dma_buf, handle);
+	if (ret == 0)
+		goto out;
+
+	/* We don't have gem_handle associated with dma_buf.
+	 * This happens in case of orphaned dma_buf. Create
+	 * gem_object/gem_handle and link it with dma_buf.
+	 */
+	sprd_gem_obj = sprd_drm_gem_prime_import(dev, &prime_fd);
+	if (IS_ERR(sprd_gem_obj)) {
+		ret = PTR_ERR(sprd_gem_obj);
+		goto out;
+	}
+
+	obj = &sprd_gem_obj->base;
+	ret = sprd_drm_gem_handle_create(obj, file_priv, &gem_handle);
+	if (ret) {
+		sprd_drm_gem_destroy(sprd_gem_obj);
+		goto out;
+	}
+
+	/* update obj->export_dma_buf so that it can be reused in
+	 * prime_handle_to_fd. Also, add dma_buf/gem_handle in
+	 * prime_lookup to get the gem_handle in prime_fd_to_handle.
+	 */
+	obj->export_dma_buf = dma_buf;
+	ret = drm_prime_add_buf_handle(&file_priv->prime,
+				obj->export_dma_buf, gem_handle);
+	if (ret) {
+		/* We are relying on free object path to clean
+		 * the buffer.
+		 */
+		drm_gem_object_handle_unreference_unlocked(obj);
+		goto out;
+	}
+
+	*handle = gem_handle;
+	DRM_DEBUG_KMS("dmabuf[0x%x] handle[0x%x]\n",
+					(unsigned int)dma_buf, *handle);
+out:
+	dma_buf_put(dma_buf);
+	mutex_unlock(&file_priv->prime.lock);
 	return ret;
 }
 
