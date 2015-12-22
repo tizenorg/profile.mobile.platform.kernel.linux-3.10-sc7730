@@ -212,13 +212,23 @@ struct dma_buf *ion_share_dma_buf(struct ion_client *client,
 int ion_share_dma_buf_fd(struct ion_client *client, struct ion_handle *handle);
 
 /**
+ * get_ion_handle_from_dmabuf() - given an dma-buf from the ion exporter get handle
+ * @client:	the client
+ * @dma_buf:	the dma-buf
+ *
+ * Given an dma-buf that was allocated through ion via ion_share_dma_buf,
+ * import that dma-buf and return a handle representing it.  If a dma-buf from
+ * another exporter is passed in this function will return ERR_PTR(-EINVAL)
+ */
+struct ion_handle *get_ion_handle_from_dmabuf(struct ion_client *client, struct dma_buf *dma_buf);
+
+/**
  * ion_import_dma_buf() - given an dma-buf fd from the ion exporter get handle
  * @client:	the client
  * @fd:		the dma-buf fd
  *
- * Given an dma-buf fd that was allocated through ion via ion_share_dma_buf,
- * import that fd and return a handle representing it.  If a dma-buf from
- * another exporter is passed in this function will return ERR_PTR(-EINVAL)
+ * Given an dma-buf fd that was allocated through ion via ion_share_dma_buf_fd,
+ * import that fd and return a handle representing it.
  */
 struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd);
 
