@@ -16,7 +16,7 @@
 #define _SPRD_DRM_DRV_H_
 
 #include <linux/module.h>
-#include <linux/ion.h>
+#include "ion.h"
 #include "drm.h"
 #include <drm/sprd_drm.h>
 

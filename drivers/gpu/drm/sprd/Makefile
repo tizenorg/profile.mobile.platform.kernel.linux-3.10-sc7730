@@ -3,7 +3,7 @@
 # Direct Rendering Infrastructure (DRI) in XFree86 4.1.0 and higher.
 
 ccflags-y := -Iinclude/uapi/drm -Idrivers/gpu/drm/sprd -Iinclude/drm
-ccflags-y += -Idrivers/video/sprdfb
+ccflags-y += -Idrivers/video/sprdfb -Idrivers/staging/android/ion
 sprddrm-y := sprd_drm_drv.o sprd_drm_buf.o sprd_drm_gem.o \
 		sprd_drm_core.o	sprd_drm_irq.o
 
