@@ -1714,14 +1714,8 @@ drm_gem_object_handle_unreference(struct drm_gem_object *obj)
 	 * ref, in which case the object would disappear before we
 	 * checked for a name
 	 */
-	if (atomic_dec_and_test(&obj->handle_count)) {
+	if (atomic_dec_and_test(&obj->handle_count))
 		drm_gem_object_handle_free(obj);
-		/* Unbreak the reference cycle if we have an exported dma_buf. */
-		if (obj->export_dma_buf) {
-			dma_buf_put(obj->export_dma_buf);
-			obj->export_dma_buf = NULL;
-		}
-	}
 	drm_gem_object_unreference(obj);
 }
 
@@ -1740,14 +1734,8 @@ drm_gem_object_handle_unreference_unlocked(struct drm_gem_object *obj)
 	* checked for a name
 	*/
 
-	if (atomic_dec_and_test(&obj->handle_count)) {
+	if (atomic_dec_and_test(&obj->handle_count))
 		drm_gem_object_handle_free(obj);
-		/* Unbreak the reference cycle if we have an exported dma_buf. */
-		if (obj->export_dma_buf) {
-			dma_buf_put(obj->export_dma_buf);
-			obj->export_dma_buf = NULL;
-		}
-	}
 	drm_gem_object_unreference_unlocked(obj);
 }
 
