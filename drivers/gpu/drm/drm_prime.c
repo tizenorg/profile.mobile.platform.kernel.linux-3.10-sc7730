@@ -63,28 +63,6 @@ struct drm_prime_member {
 	uint32_t handle;
 };
 
-bool drm_prime_check_dmabuf_valid(struct dma_buf *dmabuf)
-{
-	struct file *file = dmabuf->file;
-
-	/*
-	 * There could be a race when drm_gem_prime_handle_to_fd() is requested
-	 * during __fput() is executed with same dmabuf.
-	 * Let's suppose that there are process A and B. A creates a gem obj
-	 * and exports it to dmabuf, B opens gem name which comes from A.
-	 * And A is closing dmabuf and B tries to import dmabuf at that time.
-	 * In this case, the dmabuf is in obj->export_dma_buf cache, because
-	 * gem obj is still valid, and B could get dmabuf from this cache,
-	 * but this dmabuf is invalid already, so B has to get a new dmabuf
-	 * directly.
-	 */
-	if (!atomic_long_read(&file->f_count))
-		return false;
-
-	return true;
-}
-EXPORT_SYMBOL(drm_prime_check_dmabuf_valid);
-
 static struct sg_table *drm_gem_map_dma_buf(struct dma_buf_attachment *attach,
 		enum dma_data_direction dir)
 {
