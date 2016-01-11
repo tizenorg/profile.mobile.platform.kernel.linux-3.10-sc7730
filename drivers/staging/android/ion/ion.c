@@ -1312,7 +1312,6 @@ struct ion_handle *get_ion_handle_from_dmabuf(struct ion_client *client, struct 
 	if (dmabuf->ops != &dma_buf_ops) {
 		pr_err("%s: can not import dmabuf from another exporter\n",
 				__func__);
-		dma_buf_put(dmabuf);
 		return ERR_PTR(-EINVAL);
 	}
 	buffer = dmabuf->priv;
@@ -1340,7 +1339,6 @@ struct ion_handle *get_ion_handle_from_dmabuf(struct ion_client *client, struct 
 	}
 
 end:
-	dma_buf_put(dmabuf);
 	return handle;
 }
 EXPORT_SYMBOL(get_ion_handle_from_dmabuf);
@@ -1348,6 +1346,7 @@ EXPORT_SYMBOL(get_ion_handle_from_dmabuf);
 struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd)
 {
 	struct dma_buf *dmabuf;
+	struct ion_handle *handle;
 
 	dmabuf = dma_buf_get(fd);
 	if (IS_ERR(dmabuf)) {
@@ -1355,7 +1354,9 @@ struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd)
 				(unsigned long)dmabuf, fd);
 		return ERR_PTR(PTR_ERR(dmabuf));
 	}
-	return get_ion_handle_from_dmabuf(client, dmabuf);
+	handle = get_ion_handle_from_dmabuf(client, dmabuf);
+	dma_buf_put(dmabuf);
+	return handle;
 }
 EXPORT_SYMBOL(ion_import_dma_buf);
 
