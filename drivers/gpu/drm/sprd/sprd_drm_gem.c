@@ -767,9 +767,9 @@ void *sprd_drm_gem_get_obj_addr(unsigned int name, unsigned int index)
 	struct sprd_drm_gem_buf *buf;
 	int domain_num = 0;
 
-	spin_lock(&sprd_drm_dev->object_name_lock);
+	mutex_lock(&sprd_drm_dev->object_name_lock);
 	obj = idr_find(&sprd_drm_dev->object_name_idr, (int) name);
-	spin_unlock(&sprd_drm_dev->object_name_lock);
+	mutex_unlock(&sprd_drm_dev->object_name_lock);
 
 	if (!obj) {
 		DRM_ERROR("name[%d]failed to lookup gem object.\n", name);
