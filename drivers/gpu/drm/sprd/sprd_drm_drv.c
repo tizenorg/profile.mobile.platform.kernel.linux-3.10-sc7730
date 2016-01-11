@@ -72,11 +72,11 @@ static int sprd_drm_gem_one_info(int id, void *ptr, void *data)
 				file_priv->tgid,
 				id,
 				atomic_read(&obj->refcount.refcount) - 1,
-				atomic_read(&obj->handle_count),
+				obj->handle_count,
 				sprd_gem->size,
 				sprd_gem->flags,
 				buf->pfnmap,
-				obj->export_dma_buf ? 1 : 0,
+				obj->dma_buf ? 1 : 0,
 				obj->import_attach ? 1 : 0,
 				obj,
 				obj->name);
