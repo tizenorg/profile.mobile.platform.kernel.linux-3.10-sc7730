@@ -148,6 +148,28 @@ int ion_phys(struct ion_client *client, struct ion_handle *handle,
 	     ion_phys_addr_t *addr, size_t *len);
 
 /**
+ * ion_is_phys - returns 0 if CONTIG Heap else -1
+ * @client:	the client
+ * @handle:	the handle
+ *
+ * This function queries the heap for a particular handle to check if
+ * it is contiguous heap by checking phys() implementation.
+ * Returns -EINVAL if the handle is invalid.
+ */
+int ion_is_phys(struct ion_client *client, struct ion_handle *handle);
+
+/**
+ * ion_is_cached - returns 0 if CACHED Heap else -1
+ * @client:	the client
+ * @handle:	the handle
+ *
+ * This function queries the heap for a particular handle to check if
+ * it is cached heap or not.
+ * Returns -EINVAL if the handle is invalid.
+ */
+int ion_is_cached(struct ion_client *client, struct ion_handle *handle);
+
+/**
  * ion_map_dma - return an sg_table describing a handle
  * @client:	the client
  * @handle:	the handle
@@ -191,14 +213,41 @@ struct dma_buf *ion_share_dma_buf(struct ion_client *client,
 int ion_share_dma_buf_fd(struct ion_client *client, struct ion_handle *handle);
 
 /**
+ * get_ion_handle_from_dmabuf() - given an dma-buf from the ion exporter get handle
+ * @client:	the client
+ * @dma_buf:	the dma-buf
+ *
+ * Given an dma-buf that was allocated through ion via ion_share_dma_buf,
+ * import that dma-buf and return a handle representing it.  If a dma-buf from
+ * another exporter is passed in this function will return ERR_PTR(-EINVAL)
+ */
+struct ion_handle *get_ion_handle_from_dmabuf(struct ion_client *client, struct dma_buf *dma_buf);
+
+/**
  * ion_import_dma_buf() - given an dma-buf fd from the ion exporter get handle
  * @client:	the client
  * @fd:		the dma-buf fd
  *
- * Given an dma-buf fd that was allocated through ion via ion_share_dma_buf,
- * import that fd and return a handle representing it.  If a dma-buf from
- * another exporter is passed in this function will return ERR_PTR(-EINVAL)
+ * Given an dma-buf fd that was allocated through ion via ion_share_dma_buf_fd,
+ * import that fd and return a handle representing it.
  */
 struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd);
+
+/**
+ * ion_handle_get_size - get the allocated size of a given handle
+ *
+ * @client - client who allocated the handle
+ * @handle - handle to get the size
+ * @size - pointer to store the size
+ *
+ * gives the allocated size of a handle. returns 0 on success, negative
+ * value on error
+ *
+ * NOTE: This is intended to be used only to get a size to pass to map_iommu.
+ * You should *NOT* rely on this for any other usage.
+ */
+
+int ion_handle_get_size(struct ion_client *client, struct ion_handle *handle,
+			unsigned long *size, unsigned int *heap_id);
 
 #endif /* _LINUX_ION_H */
