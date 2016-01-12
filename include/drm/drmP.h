@@ -76,7 +76,6 @@
 #include <drm/drm_sarea.h>
 
 #include <linux/idr.h>
-#include <linux/ion.h>
 
 #define __OS_HAS_AGP (defined(CONFIG_AGP) || (defined(CONFIG_AGP_MODULE) && defined(MODULE)))
 #define __OS_HAS_MTRR (defined(CONFIG_MTRR))
