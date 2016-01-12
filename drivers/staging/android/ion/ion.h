@@ -119,6 +119,12 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 			     size_t align, unsigned int heap_id_mask,
 			     unsigned int flags);
 
+#ifdef CONFIG_DRM_SPRD
+struct ion_handle *ion_alloc_with_gem(struct ion_client *client, size_t len,
+					size_t align, unsigned int heap_id_mask,
+					unsigned int flags,
+					struct drm_gem_object *obj);
+#endif
 /**
  * ion_free - free a handle
  * @client:	the client
@@ -249,5 +255,4 @@ struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd);
 
 int ion_handle_get_size(struct ion_client *client, struct ion_handle *handle,
 			unsigned long *size, unsigned int *heap_id);
-
 #endif /* _LINUX_ION_H */

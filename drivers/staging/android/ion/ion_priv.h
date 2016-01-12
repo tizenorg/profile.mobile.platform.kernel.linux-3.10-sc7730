@@ -89,6 +89,9 @@ struct ion_buffer {
 	pid_t pid;
 	pid_t tid;
 	struct timeval alloc_time;
+#ifdef CONFIG_DRM_SPRD
+	struct drm_gem_object *obj;
+#endif
 };
 void ion_buffer_destroy(struct ion_buffer *buffer);
 

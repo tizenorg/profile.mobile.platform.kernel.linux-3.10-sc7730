@@ -376,6 +376,8 @@ struct sprd_drm_gem_obj *sprd_drm_gem_create(struct drm_device *dev,
 	/* set memory type and cache attribute from user side. */
 	sprd_gem_obj->flags = args->flags;
 
+	buf->obj = &sprd_gem_obj->base;
+
 	ret = sprd_drm_alloc_buf(dev, buf, args->flags);
 	if (ret < 0)
 		goto err_gem_fini;

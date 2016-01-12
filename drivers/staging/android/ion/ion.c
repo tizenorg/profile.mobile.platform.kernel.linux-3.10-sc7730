@@ -36,6 +36,9 @@
 #include <linux/dma-buf.h>
 #include <linux/idr.h>
 #include <linux/time.h>
+#ifdef CONFIG_DRM_SPRD
+#include <drm/drmP.h>
+#endif
 
 #include "ion.h"
 #include "ion_priv.h"
@@ -557,6 +560,23 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	return handle;
 }
 EXPORT_SYMBOL(ion_alloc);
+
+#ifdef CONFIG_DRM_SPRD
+struct ion_handle *ion_alloc_with_gem(struct ion_client *client, size_t len,
+				      size_t align, unsigned int heap_id_mask,
+				      unsigned int flags,
+				      struct drm_gem_object *obj)
+{
+	struct ion_handle *handle;
+
+	handle = ion_alloc(client, len, align, heap_id_mask, flags);
+	if (!IS_ERR(handle))
+		handle->buffer->obj = obj;
+
+	return handle;
+}
+EXPORT_SYMBOL(ion_alloc_with_gem);
+#endif
 
 void ion_free(struct ion_client *client, struct ion_handle *handle)
 {
@@ -1194,6 +1214,11 @@ static void ion_dma_buf_release(struct dma_buf *dmabuf)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 	ion_buffer_put(buffer);
+
+#ifdef CONFIG_DRM_SPRD
+	if (buffer->obj)
+		drm_gem_object_unreference_unlocked(buffer->obj);
+#endif
 }
 
 static void *ion_dma_buf_kmap(struct dma_buf *dmabuf, unsigned long offset)

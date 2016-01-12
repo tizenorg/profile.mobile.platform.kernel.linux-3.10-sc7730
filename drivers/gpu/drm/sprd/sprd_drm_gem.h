@@ -55,6 +55,8 @@ struct sprd_drm_gem_buf {
 	bool			pfnmap;
 	unsigned int		bufcount;
 	dma_addr_t		idx_addr[SPRD_DRM_GEM_MAX_INDEX_ADDR];
+
+	struct drm_gem_object *obj;
 };
 
 struct drm_sprd_gem_object_wait_list_entry {

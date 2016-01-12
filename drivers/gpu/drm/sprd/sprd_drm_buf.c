@@ -67,8 +67,8 @@ static int lowlevel_buffer_allocate(struct drm_device *dev,
 	if (IS_CACHABLE_BUFFER(flags))
 		mem_flags = ION_FLAG_CACHED;
 
-	buf->ion_handle = ion_alloc(private->sprd_drm_ion_client, buf->size,
-			SZ_4K, heap_id_mask, mem_flags);
+	buf->ion_handle = ion_alloc_with_gem(private->sprd_drm_ion_client,
+			buf->size, SZ_4K, heap_id_mask, mem_flags, buf->obj);
 
 	if (IS_ERR((void *)buf->ion_handle)) {
 		DRM_ERROR("%s Could not allocate\n", __func__);
