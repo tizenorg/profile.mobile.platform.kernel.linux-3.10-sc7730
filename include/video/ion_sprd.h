@@ -36,6 +36,8 @@
 
 #define ION_DRIVER_VERSION	1
 
+struct ion_handle;
+
 enum ION_MASTER_ID {
 	ION_GSP = 0,
 	ION_MM,

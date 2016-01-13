@@ -18,6 +18,9 @@
 #define _LINUX_ION_H
 
 #include <linux/types.h>
+#ifdef CONFIG_DRM_SPRD
+#include <drm/drmP.h>
+#endif
 
 #include "../uapi/ion.h"
 
