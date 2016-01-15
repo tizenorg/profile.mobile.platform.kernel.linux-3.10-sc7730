@@ -1,5 +1,5 @@
 /**
- * Copyright (C) ARM Limited 2011-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2011-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -19,16 +19,16 @@
 #include "Sender.h"
 #include "SessionData.h"
 
-static const char* TAG_SESSION = "session";
-static const char* TAG_REQUEST = "request";
-static const char* TAG_CONFIGURATIONS = "configurations";
+static const char TAG_SESSION[] = "session";
+static const char TAG_REQUEST[] = "request";
+static const char TAG_CONFIGURATIONS[] = "configurations";
 
-static const char* ATTR_TYPE           = "type";
-static const char* VALUE_EVENTS        = "events";
-static const char* VALUE_CONFIGURATION = "configuration";
-static const char* VALUE_COUNTERS      = "counters";
-static const char* VALUE_CAPTURED      = "captured";
-static const char* VALUE_DEFAULTS      = "defaults";
+static const char ATTR_TYPE[]           = "type";
+static const char VALUE_EVENTS[]        = "events";
+static const char VALUE_CONFIGURATION[] = "configuration";
+static const char VALUE_COUNTERS[]      = "counters";
+static const char VALUE_CAPTURED[]      = "captured";
+static const char VALUE_DEFAULTS[]      = "defaults";
 
 StreamlineSetup::StreamlineSetup(OlySocket* s) {
 	bool ready = false;
@@ -40,7 +40,7 @@ StreamlineSetup::StreamlineSetup(OlySocket* s) {
 	// Receive commands from Streamline (master)
 	while (!ready) {
 		// receive command over socket
-		gSessionData->mWaitingOnCommand = true;
+		gSessionData.mWaitingOnCommand = true;
 		data = readCommand(&type);
 
 		// parse and handle data
@@ -52,31 +52,31 @@ StreamlineSetup::StreamlineSetup(OlySocket* s) {
 				handleDeliver(data);
 				break;
 			case COMMAND_APC_START:
-				logg->logMessage("Received apc start request");
+				logg.logMessage("Received apc start request");
 				ready = true;
 				break;
 			case COMMAND_APC_STOP:
-				logg->logMessage("Received apc stop request before apc start request");
+				logg.logMessage("Received apc stop request before apc start request");
 				exit(0);
 				break;
 			case COMMAND_DISCONNECT:
-				logg->logMessage("Received disconnect command");
+				logg.logMessage("Received disconnect command");
 				exit(0);
 				break;
 			case COMMAND_PING:
-				logg->logMessage("Received ping command");
+				logg.logMessage("Received ping command");
 				sendData(NULL, 0, RESPONSE_ACK);
 				break;
 			default:
-				logg->logError(__FILE__, __LINE__, "Target error: Unknown command type, %d", type);
+				logg.logError("Target error: Unknown command type, %d", type);
 				handleException();
 		}
 
 		free(data);
 	}
 
-	if (gSessionData->mCounterOverflow > 0) {
-		logg->logError(__FILE__, __LINE__, "Only %i performance counters are permitted, %i are selected", MAX_PERFORMANCE_COUNTERS, gSessionData->mCounterOverflow);
+	if (gSessionData.mCountersError != NULL) {
+		logg.logError("%s", gSessionData.mCountersError);
 		handleException();
 	}
 }
@@ -93,10 +93,10 @@ char* StreamlineSetup::readCommand(int* command) {
 	response = mSocket->receiveNBytes((char*)&header, sizeof(header));
 
 	// After receiving a single byte, we are no longer waiting on a command
-	gSessionData->mWaitingOnCommand = false;
+	gSessionData.mWaitingOnCommand = false;
 
 	if (response < 0) {
-		logg->logError(__FILE__, __LINE__, "Target error: Unexpected socket disconnect");
+		logg.logError("Target error: Unexpected socket disconnect");
 		handleException();
 	}
 
@@ -105,21 +105,21 @@ char* StreamlineSetup::readCommand(int* command) {
 
 	// add artificial limit
 	if ((length < 0) || length > 1024 * 1024) {
-		logg->logError(__FILE__, __LINE__, "Target error: Invalid length received, %d", length);
+		logg.logError("Target error: Invalid length received, %d", length);
 		handleException();
 	}
 
 	// allocate memory to contain the xml file, size of zero returns a zero size object
 	data = (char*)calloc(length + 1, 1);
 	if (data == NULL) {
-		logg->logError(__FILE__, __LINE__, "Unable to allocate memory for xml");
+		logg.logError("Unable to allocate memory for xml");
 		handleException();
 	}
 
 	// receive data
 	response = mSocket->receiveNBytes(data, length);
 	if (response < 0) {
-		logg->logError(__FILE__, __LINE__, "Target error: Unexpected socket disconnect");
+		logg.logError("Target error: Unexpected socket disconnect");
 		handleException();
 	}
 
@@ -143,26 +143,26 @@ void StreamlineSetup::handleRequest(char* xml) {
 	}
 	if (attr && strcmp(attr, VALUE_EVENTS) == 0) {
 		sendEvents();
-		logg->logMessage("Sent events xml response");
+		logg.logMessage("Sent events xml response");
 	} else if (attr && strcmp(attr, VALUE_CONFIGURATION) == 0) {
 		sendConfiguration();
-		logg->logMessage("Sent configuration xml response");
+		logg.logMessage("Sent configuration xml response");
 	} else if (attr && strcmp(attr, VALUE_COUNTERS) == 0) {
 		sendCounters();
-		logg->logMessage("Sent counters xml response");
+		logg.logMessage("Sent counters xml response");
 	} else if (attr && strcmp(attr, VALUE_CAPTURED) == 0) {
 		CapturedXML capturedXML;
 		char* capturedText = capturedXML.getXML(false);
 		sendData(capturedText, strlen(capturedText), RESPONSE_XML);
 		free(capturedText);
-		logg->logMessage("Sent captured xml response");
+		logg.logMessage("Sent captured xml response");
 	} else if (attr && strcmp(attr, VALUE_DEFAULTS) == 0) {
 		sendDefaults();
-		logg->logMessage("Sent default configuration xml response");
+		logg.logMessage("Sent default configuration xml response");
 	} else {
 		char error[] = "Unknown request";
 		sendData(error, strlen(error), RESPONSE_NAK);
-		logg->logMessage("Received unknown request:\n%s", xml);
+		logg.logMessage("Received unknown request:\n%s", xml);
 	}
 
 	mxmlDelete(tree);
@@ -175,17 +175,17 @@ void StreamlineSetup::handleDeliver(char* xml) {
 	tree = mxmlLoadString(NULL, xml, MXML_NO_CALLBACK);
 	if (mxmlFindElement(tree, tree, TAG_SESSION, NULL, NULL, MXML_DESCEND_FIRST)) {
 		// Session XML
-		gSessionData->parseSessionXML(xml);
+		gSessionData.parseSessionXML(xml);
 		sendData(NULL, 0, RESPONSE_ACK);
-		logg->logMessage("Received session xml");
+		logg.logMessage("Received session xml");
 	} else if (mxmlFindElement(tree, tree, TAG_CONFIGURATIONS, NULL, NULL, MXML_DESCEND_FIRST)) {
 		// Configuration XML
 		writeConfiguration(xml);
 		sendData(NULL, 0, RESPONSE_ACK);
-		logg->logMessage("Received configuration xml");
+		logg.logMessage("Received configuration xml");
 	} else {
 		// Unknown XML
-		logg->logMessage("Received unknown XML delivery type");
+		logg.logMessage("Received unknown XML delivery type");
 		sendData(NULL, 0, RESPONSE_NAK);
 	}
 
@@ -197,7 +197,7 @@ void StreamlineSetup::sendData(const char* data, uint32_t length, char type) {
 	header[0] = type;
 	Buffer::writeLEInt(header + 1, length);
 	mSocket->send((char*)&header, sizeof(header));
-	mSocket->send((const char*)data, length);
+	mSocket->send(data, length);
 }
 
 void StreamlineSetup::sendEvents() {
@@ -222,7 +222,7 @@ void StreamlineSetup::sendDefaults() {
 
 	// Artificial size restriction
 	if (size > 1024*1024) {
-		logg->logError(__FILE__, __LINE__, "Corrupt default configuration file");
+		logg.logError("Corrupt default configuration file");
 		handleException();
 	}
 
@@ -240,8 +240,11 @@ void StreamlineSetup::sendCounters() {
 		count += driver->writeCounters(counters);
 	}
 
+	mxml_node_t *setup = mxmlNewElement(counters, "setup_warnings");
+	mxmlNewText(setup, 0, logg.getSetup());
+
 	if (count == 0) {
-		logg->logError(__FILE__, __LINE__, "No counters found, this could be because /dev/gator/events can not be read or because perf is not working correctly");
+		logg.logError("No counters found, this could be because /dev/gator/events can not be read or because perf is not working correctly");
 		handleException();
 	}
 
@@ -257,16 +260,16 @@ void StreamlineSetup::writeConfiguration(char* xml) {
 
 	ConfigurationXML::getPath(path);
 
-	if (util->writeToDisk(path, xml) < 0) {
-		logg->logError(__FILE__, __LINE__, "Error writing %s\nPlease verify write permissions to this path.", path);
+	if (writeToDisk(path, xml) < 0) {
+		logg.logError("Error writing %s\nPlease verify write permissions to this path.", path);
 		handleException();
 	}
 
 	// Re-populate gSessionData with the configuration, as it has now changed
 	{ ConfigurationXML configuration; }
 
-	if (gSessionData->mCounterOverflow > 0) {
-		logg->logError(__FILE__, __LINE__, "Only %i performance counters are permitted, %i are selected", MAX_PERFORMANCE_COUNTERS, gSessionData->mCounterOverflow);
+	if (gSessionData.mCountersError != NULL) {
+		logg.logError("%s", gSessionData.mCountersError);
 		handleException();
 	}
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) ARM Limited 2010-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2010-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -29,6 +29,7 @@ public:
 	bool isDone();
 	void write(Sender *sender);
 
+	static void checkVersion();
 	static int readIntDriver(const char *fullpath, int *value);
 	static int readInt64Driver(const char *fullpath, int64_t *value);
 	static int writeDriver(const char *fullpath, const char *data);

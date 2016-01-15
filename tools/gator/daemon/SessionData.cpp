@@ -1,5 +1,5 @@
 /**
- * Copyright (C) ARM Limited 2010-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2010-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -11,9 +11,9 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 
-#include "CPUFreqDriver.h"
 #include "DiskIODriver.h"
 #include "FSDriver.h"
 #include "HwmonDriver.h"
@@ -24,36 +24,101 @@
 
 #define CORE_NAME_UNKNOWN "unknown"
 
-SessionData* gSessionData = NULL;
+const char MALI_GRAPHICS[] = "\0mali_thirdparty_server";
+const size_t MALI_GRAPHICS_SIZE = sizeof(MALI_GRAPHICS);
+
+SessionData gSessionData;
+
+GatorCpu *GatorCpu::mHead;
+
+GatorCpu::GatorCpu(const char *const coreName, const char *const pmncName, const char *const dtName, const int cpuid, const int pmncCounters) : mNext(mHead), mCoreName(coreName), mPmncName(pmncName), mDtName(dtName), mCpuid(cpuid), mPmncCounters(pmncCounters) {
+	mHead = this;
+}
+
+static const char OLD_PMU_PREFIX[] = "ARMv7 Cortex-";
+static const char NEW_PMU_PREFIX[] = "ARMv7_Cortex_";
+
+GatorCpu *GatorCpu::find(const char *const name) {
+	GatorCpu *gatorCpu;
+
+	for (gatorCpu = mHead; gatorCpu != NULL; gatorCpu = gatorCpu->mNext) {
+		if (strcasecmp(gatorCpu->mPmncName, name) == 0 ||
+				// Do these names match but have the old vs new prefix?
+				((strncasecmp(name, OLD_PMU_PREFIX, sizeof(OLD_PMU_PREFIX) - 1) == 0 &&
+					strncasecmp(gatorCpu->mPmncName, NEW_PMU_PREFIX, sizeof(NEW_PMU_PREFIX) - 1) == 0 &&
+					strcasecmp(name + sizeof(OLD_PMU_PREFIX) - 1, gatorCpu->mPmncName + sizeof(NEW_PMU_PREFIX) - 1) == 0))) {
+			break;
+		}
+	}
+
+	return gatorCpu;
+}
+
+GatorCpu *GatorCpu::find(const int cpuid) {
+	GatorCpu *gatorCpu;
+
+	for (gatorCpu = mHead; gatorCpu != NULL; gatorCpu = gatorCpu->mNext) {
+		if (gatorCpu->mCpuid == cpuid) {
+			break;
+		}
+	}
+
+	return gatorCpu;
+}
+
+UncorePmu *UncorePmu::mHead;
+
+UncorePmu::UncorePmu(const char *const coreName, const char *const pmncName, const int pmncCounters, const bool hasCyclesCounter) : mNext(mHead), mCoreName(coreName), mPmncName(pmncName), mPmncCounters(pmncCounters), mHasCyclesCounter(hasCyclesCounter) {
+	mHead = this;
+}
+
+UncorePmu *UncorePmu::find(const char *const name) {
+	UncorePmu *gatorCpu;
+
+	for (gatorCpu = mHead; gatorCpu != NULL; gatorCpu = gatorCpu->mNext) {
+		if (strcasecmp(name, gatorCpu->mPmncName) == 0) {
+			break;
+		}
+	}
+
+	return gatorCpu;
+}
+
+SharedData::SharedData() : mMaliUtgardCountersSize(0) {
+	memset(mCpuIds, -1, sizeof(mCpuIds));
+}
 
 SessionData::SessionData() {
-	usDrivers[0] = new HwmonDriver();
-	usDrivers[1] = new FSDriver();
-	usDrivers[2] = new MemInfoDriver();
-	usDrivers[3] = new NetDriver();
-	usDrivers[4] = new CPUFreqDriver();
-	usDrivers[5] = new DiskIODriver();
-	initialize();
 }
 
 SessionData::~SessionData() {
 }
 
+// Needed to use placement new
+inline void *operator new(size_t, void *ptr) { return ptr; }
+
 void SessionData::initialize() {
+	mUsDrivers[0] = new HwmonDriver();
+	mUsDrivers[1] = new FSDriver();
+	mUsDrivers[2] = new MemInfoDriver();
+	mUsDrivers[3] = new NetDriver();
+	mUsDrivers[4] = new DiskIODriver();
+
+	mSharedData = (SharedData *)mmap(NULL, sizeof(*mSharedData), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	if (mSharedData == MAP_FAILED) {
+		logg.logError("Unable to mmap shared memory for cpuids");
+		handleException();
+	}
+	// Use placement new to construct but not allocate the object
+	new ((char *)mSharedData) SharedData();
+
 	mWaitingOnCommand = false;
 	mSessionIsActive = false;
 	mLocalCapture = false;
 	mOneShot = false;
 	mSentSummary = false;
 	mAllowCommands = false;
-	const size_t cpuIdSize = sizeof(int)*NR_CPUS;
-	// Share mCpuIds across all instances of gatord
-	mCpuIds = (int *)mmap(NULL, cpuIdSize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	if (mCpuIds == MAP_FAILED) {
-		logg->logError(__FILE__, __LINE__, "Unable to mmap shared memory for cpuids");
-		handleException();
-	}
-	memset(mCpuIds, -1, cpuIdSize);
+	mFtraceRaw = false;
 	strcpy(mCoreName, CORE_NAME_UNKNOWN);
 	readModel();
 	readCpuInfo();
@@ -61,6 +126,7 @@ void SessionData::initialize() {
 	mConfigurationXMLPath = NULL;
 	mSessionXMLPath = NULL;
 	mEventsXMLPath = NULL;
+	mEventsXMLAppend = NULL;
 	mTargetPath = NULL;
 	mAPCDir = NULL;
 	mCaptureWorkingDir = NULL;
@@ -75,6 +141,7 @@ void SessionData::initialize() {
 	// sysconf(_SC_NPROCESSORS_CONF) is unreliable on 2.6 Android, get the value from the kernel module
 	mCores = 1;
 	mPageSize = 0;
+	mAnnotateStart = -1;
 }
 
 void SessionData::parseSessionXML(char* xmlString) {
@@ -83,15 +150,15 @@ void SessionData::parseSessionXML(char* xmlString) {
 
 	// Set session data values - use prime numbers just below the desired value to reduce the chance of events firing at the same time
 	if (strcmp(session.parameters.sample_rate, "high") == 0) {
-		mSampleRate = 9973; // 10000
+		mSampleRate = 10007; // 10000
 	} else if (strcmp(session.parameters.sample_rate, "normal") == 0) {
-		mSampleRate = 997; // 1000
+		mSampleRate = 1009; // 1000
 	} else if (strcmp(session.parameters.sample_rate, "low") == 0) {
-		mSampleRate = 97; // 100
+		mSampleRate = 101; // 100
 	} else if (strcmp(session.parameters.sample_rate, "none") == 0) {
 		mSampleRate = 0;
 	} else {
-		logg->logError(__FILE__, __LINE__, "Invalid sample rate (%s) in session xml.", session.parameters.sample_rate);
+		logg.logError("Invalid sample rate (%s) in session xml.", session.parameters.sample_rate);
 		handleException();
 	}
 	mBacktraceDepth = session.parameters.call_stack_unwinding == true ? 128 : 0;
@@ -108,25 +175,25 @@ void SessionData::parseSessionXML(char* xmlString) {
 	} else if (strcmp(session.parameters.buffer_mode, "large") == 0) {
 		mTotalBufferSize = 16;
 	} else {
-		logg->logError(__FILE__, __LINE__, "Invalid value for buffer mode in session xml.");
+		logg.logError("Invalid value for buffer mode in session xml.");
 		handleException();
 	}
 
 	// Convert milli- to nanoseconds
 	mLiveRate = session.parameters.live_rate * (int64_t)1000000;
 	if (mLiveRate > 0 && mLocalCapture) {
-		logg->logMessage("Local capture is not compatable with live, disabling live");
+		logg.logMessage("Local capture is not compatable with live, disabling live");
 		mLiveRate = 0;
 	}
 
 	if (!mAllowCommands && (mCaptureCommand != NULL)) {
-		logg->logError(__FILE__, __LINE__, "Running a command during a capture is not currently allowed. Please restart gatord with the -a flag.");
+		logg.logError("Running a command during a capture is not currently allowed. Please restart gatord with the -a flag.");
 		handleException();
 	}
 }
 
 void SessionData::readModel() {
-	FILE *fh = fopen("/proc/device-tree/model", "rb");
+	FILE *fh = fopen_cloexec("/proc/device-tree/model", "rb");
 	if (fh == NULL) {
 		return;
 	}
@@ -139,21 +206,42 @@ void SessionData::readModel() {
 	fclose(fh);
 }
 
+static void setImplementer(int &cpuId, const int implementer) {
+	if (cpuId == -1) {
+		cpuId = 0;
+	}
+	cpuId |= implementer << 12;
+}
+
+static void setPart(int &cpuId, const int part) {
+	if (cpuId == -1) {
+		cpuId = 0;
+	}
+	cpuId |= part;
+}
+
 void SessionData::readCpuInfo() {
 	char temp[256]; // arbitrarily large amount
 	mMaxCpuId = -1;
 
-	FILE *f = fopen("/proc/cpuinfo", "r");
+	FILE *f = fopen_cloexec("/proc/cpuinfo", "r");
 	if (f == NULL) {
-		logg->logMessage("Error opening /proc/cpuinfo\n"
+		logg.logMessage("Error opening /proc/cpuinfo\n"
 			"The core name in the captured xml file will be 'unknown'.");
 		return;
 	}
 
-	bool foundCoreName = false;
+	bool foundCoreName = (strcmp(mCoreName, CORE_NAME_UNKNOWN) != 0);
 	int processor = -1;
 	while (fgets(temp, sizeof(temp), f)) {
 		const size_t len = strlen(temp);
+
+		if (len > 0) {
+			// Replace the line feed with a null
+			temp[len - 1] = '\0';
+		}
+
+		logg.logMessage("cpuinfo: %s", temp);
 
 		if (len == 1) {
 			// New section, clear the processor. Streamline will not know the cpus if the pre Linux 3.8 format of cpuinfo is encountered but also that no incorrect information will be transmitted.
@@ -161,39 +249,44 @@ void SessionData::readCpuInfo() {
 			continue;
 		}
 
-		if (len > 0) {
-			// Replace the line feed with a null
-			temp[len - 1] = '\0';
-		}
-
-		const bool foundHardware = strstr(temp, "Hardware") != 0;
+		const bool foundHardware = !foundCoreName && strstr(temp, "Hardware") != 0;
+		const bool foundCPUImplementer = strstr(temp, "CPU implementer") != 0;
 		const bool foundCPUPart = strstr(temp, "CPU part") != 0;
 		const bool foundProcessor = strstr(temp, "processor") != 0;
-		if (foundHardware || foundCPUPart || foundProcessor) {
+		if (foundHardware || foundCPUImplementer || foundCPUPart || foundProcessor) {
 			char* position = strchr(temp, ':');
 			if (position == NULL || (unsigned int)(position - temp) + 2 >= strlen(temp)) {
-				logg->logMessage("Unknown format of /proc/cpuinfo\n"
+				logg.logMessage("Unknown format of /proc/cpuinfo\n"
 					"The core name in the captured xml file will be 'unknown'.");
 				return;
 			}
 			position += 2;
 
-			if (foundHardware && (strcmp(mCoreName, CORE_NAME_UNKNOWN) == 0)) {
+			if (foundHardware) {
 				strncpy(mCoreName, position, sizeof(mCoreName));
 				mCoreName[sizeof(mCoreName) - 1] = 0; // strncpy does not guarantee a null-terminated string
 				foundCoreName = true;
 			}
 
+			if (foundCPUImplementer) {
+				const int implementer = strtol(position, NULL, 0);
+				if (processor >= NR_CPUS) {
+					logg.logMessage("Too many processors, please increase NR_CPUS");
+				} else if (processor >= 0) {
+					setImplementer(mSharedData->mCpuIds[processor], implementer);
+				} else {
+					setImplementer(mMaxCpuId, implementer);
+				}
+			}
+
 			if (foundCPUPart) {
 				const int cpuId = strtol(position, NULL, 0);
-				// If this does not have the full topology in /proc/cpuinfo, mCpuIds[0] may not have the 1 CPU part emitted - this guarantees it's in mMaxCpuId
-				if (cpuId > mMaxCpuId) {
-					mMaxCpuId = cpuId;
-				}
 				if (processor >= NR_CPUS) {
-					logg->logMessage("Too many processors, please increase NR_CPUS");
+					logg.logMessage("Too many processors, please increase NR_CPUS");
 				} else if (processor >= 0) {
-					mCpuIds[processor] = cpuId;
+					setPart(mSharedData->mCpuIds[processor], cpuId);
+				} else {
+					setPart(mMaxCpuId, cpuId);
 				}
 			}
 
@@ -203,8 +296,15 @@ void SessionData::readCpuInfo() {
 		}
 	}
 
+	// If this does not have the full topology in /proc/cpuinfo, mCpuIds[0] may not have the 1 CPU part emitted - this guarantees it's in mMaxCpuId
+	for (int i = 0; i < NR_CPUS; ++i) {
+		if (mSharedData->mCpuIds[i] > mMaxCpuId) {
+			mMaxCpuId = mSharedData->mCpuIds[i];
+		}
+	}
+
 	if (!foundCoreName) {
-		logg->logMessage("Could not determine core name from /proc/cpuinfo\n"
+		logg.logMessage("Could not determine core name from /proc/cpuinfo\n"
 				 "The core name in the captured xml file will be 'unknown'.");
 	}
 	fclose(f);
@@ -213,7 +313,7 @@ void SessionData::readCpuInfo() {
 uint64_t getTime() {
 	struct timespec ts;
 	if (clock_gettime(CLOCK_MONOTONIC_RAW, &ts) != 0) {
-		logg->logError(__FILE__, __LINE__, "Failed to get uptime");
+		logg.logError("Failed to get uptime");
 		handleException();
 	}
 	return (NS_PER_S*ts.tv_sec + ts.tv_nsec);
@@ -258,4 +358,76 @@ FILE *fopen_cloexec(const char *path, const char *mode) {
 		return NULL;
 	}
 	return fh;
+}
+
+bool setNonblock(const int fd) {
+	int flags;
+
+	flags = fcntl(fd, F_GETFL);
+	if (flags < 0) {
+		logg.logMessage("fcntl getfl failed");
+		return false;
+	}
+
+	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) != 0) {
+		logg.logMessage("fcntl setfl failed");
+		return false;
+	}
+
+	return true;
+}
+
+bool writeAll(const int fd, const void *const buf, const size_t pos) {
+	size_t written = 0;
+	while (written < pos) {
+		ssize_t bytes = write(fd, (const uint8_t *)buf + written, pos - written);
+		if (bytes <= 0) {
+			logg.logMessage("write failed");
+			return false;
+		}
+		written += bytes;
+	}
+
+	return true;
+}
+
+bool readAll(const int fd, void *const buf, const size_t count) {
+	size_t pos = 0;
+	while (pos < count) {
+		ssize_t bytes = read(fd, (uint8_t *)buf + pos, count - pos);
+		if (bytes <= 0) {
+			logg.logMessage("read failed");
+			return false;
+		}
+		pos += bytes;
+	}
+
+	return true;
+}
+
+bool getLinuxVersion(int version[3]) {
+	// Check the kernel version
+	struct utsname utsname;
+	if (uname(&utsname) != 0) {
+		logg.logMessage("uname failed");
+		return false;
+	}
+
+	version[0] = 0;
+	version[1] = 0;
+	version[2] = 0;
+
+	int part = 0;
+	char *ch = utsname.release;
+	while (*ch >= '0' && *ch <= '9' && part < 3) {
+		version[part] = 10*version[part] + *ch - '0';
+
+		++ch;
+		if (*ch == '.') {
+			++part;
+			++ch;
+		}
+	}
+
+	return true;
 }

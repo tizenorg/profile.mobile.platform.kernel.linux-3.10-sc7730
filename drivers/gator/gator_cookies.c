@@ -1,11 +1,26 @@
 /**
- * Copyright (C) ARM Limited 2010-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2010-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
  */
+
+#include <linux/mount.h>
+
+struct mount {
+	struct mount *mnt_parent;
+	struct dentry *mnt_mountpoint;
+	struct vfsmount mnt;
+};
+
+static inline struct mount *real_mount(struct vfsmount *mnt)
+{
+	return container_of(mnt, struct mount, mnt);
+}
+
+#define GET_MNT_ROOT(mount) ((mount)->mnt.mnt_root)
 
 /* must be power of 2 */
 #define COOKIEMAP_ENTRIES	1024
@@ -23,6 +38,7 @@ struct cookie_args {
 };
 
 static DEFINE_PER_CPU(char *, translate_text);
+static DEFINE_PER_CPU(char *, scratch);
 static DEFINE_PER_CPU(uint32_t, cookie_next_key);
 static DEFINE_PER_CPU(uint64_t *, cookie_keys);
 static DEFINE_PER_CPU(uint32_t *, cookie_values);
@@ -134,9 +150,7 @@ static void translate_buffer_write_args(int cpu, struct task_struct *task, const
 		args = &per_cpu(translate_buffer, cpu)[write];
 		args->task = task;
 		args->text = text;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39)
 		get_task_struct(task);
-#endif
 		per_cpu(translate_buffer_write, cpu) = next_write;
 	}
 
@@ -170,9 +184,7 @@ static void wq_cookie_handler(struct work_struct *unused)
 			translate_buffer_read_args(cpu, &args);
 			cookie = get_cookie(cpu, args.task, args.text, true);
 			marshal_link(cookie, args.task->tgid, args.task->pid);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39)
 			put_task_struct(args.task);
-#endif
 		}
 	}
 
@@ -285,7 +297,7 @@ static uint32_t get_cookie(int cpu, struct task_struct *task, const char *text, 
 		return cookie;
 
 	/* On 64-bit android app_process can be app_process32 or app_process64 */
-	if (strncmp(text, APP_PROCESS, sizeof(APP_PROCESS) - 1) == 0) {
+	if (strstr(text, APP_PROCESS) != NULL) {
 		if (!translate_app_process(&text, cpu, task, from_wq))
 			return UNRESOLVED_COOKIE;
 	}
@@ -305,6 +317,71 @@ static uint32_t get_cookie(int cpu, struct task_struct *task, const char *text, 
 	return cookie;
 }
 
+/* Can't call d_path in interrupt context so create something similar */
+static const char *gator_d_path(const struct path *path, char *buf, int buflen)
+{
+	struct dentry *dentry = path->dentry;
+	struct mount *mount = real_mount(path->mnt);
+	int pos = buflen - 1;
+	int len;
+
+	buf[pos] = '\0';
+
+	for (;;) {
+		if (dentry == NULL) {
+			pr_err("gator: dentry is null!\n");
+			break;
+		}
+		if (dentry->d_name.name[0] == '\0') {
+			pr_err("gator: path is empty string\n");
+			break;
+		}
+		if (dentry->d_name.name[0] == '/' && dentry->d_name.name[1] == '\0') {
+			/* Normal operation */
+			/* pr_err("gator: path is /\n"); */
+			break;
+		}
+
+		len = strlen(dentry->d_name.name);
+		if (pos < len) {
+			pr_err("gator: path is too long\n");
+			break;
+		}
+		pos -= len;
+		memcpy(buf + pos, dentry->d_name.name, len);
+
+		if (pos == 0) {
+			pr_err("gator: no room for slash\n");
+			/* Fall back to name only */
+			return path->dentry->d_name.name;
+		}
+		--pos;
+		buf[pos] = '/';
+
+		if (dentry->d_parent == GET_MNT_ROOT(mount)) {
+			/* pr_err("gator: filesystem is complete, moving to next '%s'\n", buf + pos); */
+			dentry = mount->mnt_mountpoint;
+			mount = mount->mnt_parent;
+			continue;
+		}
+		if (dentry == dentry->d_parent) {
+			pr_err("gator: parent is self\n");
+			break;
+		}
+		dentry = dentry->d_parent;
+	}
+
+	if (pos < 0) {
+		pr_err("gator: pos is somenow negative\n");
+		/* Fall back to name only */
+		return path->dentry->d_name.name;
+	}
+
+	return buf + pos;
+}
+
+#define d_path gator_d_path
+
 static int get_exec_cookie(int cpu, struct task_struct *task)
 {
 	struct mm_struct *mm = task->mm;
@@ -315,7 +392,7 @@ static int get_exec_cookie(int cpu, struct task_struct *task)
 		return NO_COOKIE;
 
 	if (task && task->mm && task->mm->exe_file) {
-		text = task->mm->exe_file->f_path.dentry->d_name.name;
+		text = d_path(&task->mm->exe_file->f_path, per_cpu(scratch, get_physical_cpu()), PAGE_SIZE);
 		return get_cookie(cpu, task, text, false);
 	}
 
@@ -337,7 +414,7 @@ static unsigned long get_address_cookie(int cpu, struct task_struct *task, unsig
 			continue;
 
 		if (vma->vm_file) {
-			text = vma->vm_file->f_path.dentry->d_name.name;
+			text = d_path(&vma->vm_file->f_path, per_cpu(scratch, get_physical_cpu()), PAGE_SIZE);
 			cookie = get_cookie(cpu, task, text, false);
 			*offset = (vma->vm_pgoff << PAGE_SHIFT) + addr - vma->vm_start;
 		} else {
@@ -394,6 +471,12 @@ static int cookies_initialize(void)
 			err = -ENOMEM;
 			goto cookie_setup_error;
 		}
+
+		per_cpu(scratch, cpu) = kmalloc(PAGE_SIZE, GFP_KERNEL);
+		if (!per_cpu(scratch, cpu)) {
+			err = -ENOMEM;
+			goto cookie_setup_error;
+		}
 	}
 
 	/* build CRC32 table */
@@ -414,7 +497,7 @@ static int cookies_initialize(void)
 		gator_crc32_table[i] = crc;
 	}
 
-	setup_timer(&app_process_wake_up_timer, app_process_wake_up_handler, 0);
+	setup_deferrable_timer_on_stack(&app_process_wake_up_timer, app_process_wake_up_handler, 0);
 
 cookie_setup_error:
 	return err;
@@ -438,6 +521,9 @@ static void cookies_release(void)
 
 		kfree(per_cpu(translate_text, cpu));
 		per_cpu(translate_text, cpu) = NULL;
+
+		kfree(per_cpu(scratch, cpu));
+		per_cpu(scratch, cpu) = NULL;
 	}
 
 	del_timer_sync(&app_process_wake_up_timer);

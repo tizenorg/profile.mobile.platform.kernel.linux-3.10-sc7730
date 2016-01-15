@@ -1,5 +1,5 @@
 /**
- * Copyright (C) ARM Limited 2013-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2013-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -14,8 +14,9 @@
 class Buffer;
 class DynBuf;
 
-bool readProcComms(const uint64_t currTime, Buffer *const buffer, DynBuf *const printb, DynBuf *const b1, DynBuf *const b2);
+bool readProcSysDependencies(const uint64_t currTime, Buffer *const buffer, DynBuf *const printb, DynBuf *const b1, DynBuf *const b2);
 bool readProcMaps(const uint64_t currTime, Buffer *const buffer, DynBuf *const printb, DynBuf *const b);
 bool readKallsyms(const uint64_t currTime, Buffer *const buffer, const bool *const isDone);
+bool readTracepointFormat(const uint64_t currTime, Buffer *const buffer, const char *const name, DynBuf *const printb, DynBuf *const b);
 
 #endif // PROC_H

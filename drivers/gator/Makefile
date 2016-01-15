@@ -12,7 +12,6 @@ gator-y :=	gator_main.o \
 		gator_events_meminfo.o \
 		gator_events_mmapped.o \
 		gator_events_net.o \
-		gator_events_perf_pmu.o \
 		gator_events_sched.o \
 
 # Convert the old GATOR_WITH_MALI_SUPPORT to the new kernel flags
@@ -29,6 +28,14 @@ ifneq ($(GATOR_WITH_MALI_SUPPORT),)
   ifneq ($(GATOR_MALI_INTERFACE_STYLE),)
     EXTRA_CFLAGS += -DGATOR_MALI_INTERFACE_STYLE=$(GATOR_MALI_INTERFACE_STYLE)
   endif
+  ifneq ($(GATOR_MALI_4XXMP_PATH),)
+    CONFIG_GATOR_MALI_4XXMP_PATH = $(GATOR_MALI_4XXMP_PATH)
+  endif
+  CONFIG_GATOR_MALI_4XXMP_PATH ?= drivers/gpu/arm/mali400mp
+  ifneq ($(GATOR_MALI_MIDGARD_PATH),)
+    CONFIG_GATOR_MALI_MIDGARD_PATH = $(GATOR_MALI_MIDGARD_PATH)
+  endif
+  CONFIG_GATOR_MALI_MIDGARD_PATH ?= drivers/gpu/arm/midgard
 endif
 
 ifeq ($(CONFIG_GATOR_WITH_MALI_SUPPORT),y)
@@ -41,8 +48,11 @@ ifeq ($(CONFIG_GATOR_WITH_MALI_SUPPORT),y)
   endif
   gator-y +=	gator_events_mali_common.o
 
-  ifneq ($(CONFIG_GATOR_MALI_PATH),)
-    ccflags-y += -I$(CONFIG_GATOR_MALI_PATH)
+  ifneq ($(CONFIG_GATOR_MALI_4XXMP_PATH),)
+    ccflags-$(CONFIG_GATOR_MALI_4XXMP) += -I$(CONFIG_GATOR_MALI_4XXMP_PATH)
+  endif
+  ifneq ($(CONFIG_GATOR_MALI_MIDGARD_PATH),)
+    ccflags-$(CONFIG_GATOR_MALI_MIDGARD) += -I$(CONFIG_GATOR_MALI_MIDGARD_PATH)
   endif
   ccflags-$(CONFIG_GATOR_MALI_4XXMP) += -DMALI_SUPPORT=MALI_4xx
   ccflags-$(CONFIG_GATOR_MALI_MIDGARD) += -DMALI_SUPPORT=MALI_MIDGARD
@@ -56,12 +66,25 @@ EXTRA_CFLAGS +=	-DGATOR_TEST=$(GATOR_TEST)
 OLD_BLOCK_RQ_COMPLETE := $(shell grep -A3 block_rq_complete $(srctree)/include/trace/events/block.h | grep nr_bytes -q; echo $$?)
 EXTRA_CFLAGS += -DOLD_BLOCK_RQ_COMPLETE=$(OLD_BLOCK_RQ_COMPLETE)
 
-gator-$(CONFIG_ARM) +=	gator_events_armv6.o \
-			gator_events_armv7.o \
-			gator_events_l2c-310.o \
-			gator_events_scorpion.o
+gator-$(CONFIG_ARM) +=	gator_events_l2c-310.o
 
 gator-$(CONFIG_ARM64) +=
+
+$(obj)/gator_main.o: $(obj)/gator_src_md5.h
+
+clean-files := gator_src_md5.h
+
+# Note, in the recipe below we use "cd $(srctree) && cd $(src)" rather than
+# "cd $(srctree)/$(src)" because under DKMS $(src) is an absolute path, and we
+# can't just use $(src) because for normal kernel builds this is relative to
+# $(srctree)
+
+       chk_events.h = :
+ quiet_chk_events.h = echo '  CHK     $@'
+silent_chk_events.h = :
+$(obj)/gator_src_md5.h: FORCE
+	@$($(quiet)chk_events.h)
+	$(Q)cd $(srctree) && cd $(src) ; $(CONFIG_SHELL) -c "echo 'static char *gator_src_md5 = \"'\`ls *.c *.h mali/*.h | grep -Ev '^(gator_src_md5\.h|gator\.mod\.c)$$' | LC_ALL=C sort | xargs cat | md5sum | cut -b 1-32\`'\";'" > $(abspath $@)
 
 else
 
@@ -73,7 +96,7 @@ all:
 	$(error)
 
 clean:
-	rm -f *.o .*.cmd modules.order Module.symvers gator.ko gator.mod.c
+	rm -f *.o .*.cmd gator_src_md5.h modules.order Module.symvers gator.ko gator.mod.c
 	rm -rf .tmp_versions
 
 endif

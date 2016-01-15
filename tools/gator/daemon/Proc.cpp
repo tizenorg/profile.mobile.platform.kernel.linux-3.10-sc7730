@@ -1,5 +1,5 @@
 /**
- * Copyright (C) ARM Limited 2013-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2013-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -31,20 +31,20 @@ struct ProcStat {
 
 static bool readProcStat(ProcStat *const ps, const char *const pathname, DynBuf *const b) {
 	if (!b->read(pathname)) {
-		logg->logMessage("%s(%s:%i): DynBuf::read failed, likely because the thread exited", __FUNCTION__, __FILE__, __LINE__);
+		logg.logMessage("DynBuf::read failed, likely because the thread exited");
 		// This is not a fatal error - the thread just doesn't exist any more
 		return true;
 	}
 
 	char *comm = strchr(b->getBuf(), '(');
 	if (comm == NULL) {
-		logg->logMessage("%s(%s:%i): parsing stat failed", __FUNCTION__, __FILE__, __LINE__);
+		logg.logMessage("parsing stat failed");
 		return false;
 	}
 	++comm;
 	char *const str = strrchr(comm, ')');
 	if (str == NULL) {
-		logg->logMessage("%s(%s:%i): parsing stat failed", __FUNCTION__, __FILE__, __LINE__);
+		logg.logMessage("parsing stat failed");
 		return false;
 	}
 	*str = '\0';
@@ -53,7 +53,7 @@ static bool readProcStat(ProcStat *const ps, const char *const pathname, DynBuf 
 
 	const int count = sscanf(str + 2, " %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %ld", &ps->numThreads);
 	if (count != 1) {
-		logg->logMessage("%s(%s:%i): sscanf failed", __FUNCTION__, __FILE__, __LINE__);
+		logg.logMessage("sscanf failed");
 		return false;
 	}
 
@@ -65,41 +65,36 @@ static const char APP_PROCESS[] = "app_process";
 static const char *readProcExe(DynBuf *const printb, const int pid, const int tid, DynBuf *const b) {
 	if (tid == -1 ? !printb->printf("/proc/%i/exe", pid)
 			: !printb->printf("/proc/%i/task/%i/exe", pid, tid)) {
-		logg->logMessage("%s(%s:%i): DynBuf::printf failed", __FUNCTION__, __FILE__, __LINE__);
+		logg.logMessage("DynBuf::printf failed");
 		return NULL;
 	}
 
 	const int err = b->readlink(printb->getBuf());
 	const char *image;
 	if (err == 0) {
-		image = strrchr(b->getBuf(), '/');
-		if (image == NULL) {
-			image = b->getBuf();
-		} else {
-			++image;
-		}
+		image = b->getBuf();
 	} else if (err == -ENOENT) {
 		// readlink /proc/[pid]/exe returns ENOENT for kernel threads
 		image = "\0";
 	} else {
-		logg->logMessage("%s(%s:%i): DynBuf::readlink failed", __FUNCTION__, __FILE__, __LINE__);
+		logg.logMessage("DynBuf::readlink failed");
 		return NULL;
 	}
 
 	// Android apps are run by app_process but the cmdline is changed to reference the actual app name
 	// On 64-bit android app_process can be app_process32 or app_process64
-	if (strncmp(image, APP_PROCESS, sizeof(APP_PROCESS) - 1) != 0) {
+	if (strstr(image, APP_PROCESS) == NULL) {
 		return image;
 	}
 
 	if (tid == -1 ? !printb->printf("/proc/%i/cmdline", pid)
 			: !printb->printf("/proc/%i/task/%i/cmdline", pid, tid)) {
-		logg->logMessage("%s(%s:%i): DynBuf::printf failed", __FUNCTION__, __FILE__, __LINE__);
+		logg.logMessage("DynBuf::printf failed");
 		return NULL;
 	}
 
 	if (!b->read(printb->getBuf())) {
-		logg->logMessage("%s(%s:%i): DynBuf::read failed, likely because the thread exited", __FUNCTION__, __FILE__, __LINE__);
+		logg.logMessage("DynBuf::read failed, likely because the thread exited");
 		return NULL;
 	}
 
@@ -110,12 +105,12 @@ static bool readProcTask(const uint64_t currTime, Buffer *const buffer, const in
 	bool result = false;
 
 	if (!b1->printf("/proc/%i/task", pid)) {
-		logg->logMessage("%s(%s:%i): DynBuf::printf failed", __FUNCTION__, __FILE__, __LINE__);
+		logg.logMessage("DynBuf::printf failed");
 		return result;
 	}
 	DIR *task = opendir(b1->getBuf());
 	if (task == NULL) {
-		logg->logMessage("%s(%s:%i): opendir failed", __FUNCTION__, __FILE__, __LINE__);
+		logg.logMessage("opendir failed");
 		// This is not a fatal error - the thread just doesn't exist any more
 		return true;
 	}
@@ -130,22 +125,22 @@ static bool readProcTask(const uint64_t currTime, Buffer *const buffer, const in
 		}
 
 		if (!printb->printf("/proc/%i/task/%i/stat", pid, tid)) {
-			logg->logMessage("%s(%s:%i): DynBuf::printf failed", __FUNCTION__, __FILE__, __LINE__);
+			logg.logMessage("DynBuf::printf failed");
 			goto fail;
 		}
 		ProcStat ps;
 		if (!readProcStat(&ps, printb->getBuf(), b1)) {
-			logg->logMessage("%s(%s:%i): readProcStat failed", __FUNCTION__, __FILE__, __LINE__);
+			logg.logMessage("readProcStat failed");
 			goto fail;
 		}
 
 		const char *const image = readProcExe(printb, pid, tid, b2);
 		if (image == NULL) {
-			logg->logMessage("%s(%s:%i): readImage failed", __FUNCTION__, __FILE__, __LINE__);
+			logg.logMessage("readImage failed");
 			goto fail;
 		}
 
-		buffer->comm(currTime, pid, tid, image, ps.comm);
+		buffer->marshalComm(currTime, pid, tid, image, ps.comm);
 	}
 
 	result = true;
@@ -156,12 +151,12 @@ static bool readProcTask(const uint64_t currTime, Buffer *const buffer, const in
 	return result;
 }
 
-bool readProcComms(const uint64_t currTime, Buffer *const buffer, DynBuf *const printb, DynBuf *const b1, DynBuf *const b2) {
+bool readProcSysDependencies(const uint64_t currTime, Buffer *const buffer, DynBuf *const printb, DynBuf *const b1, DynBuf *const b2) {
 	bool result = false;
 
 	DIR *proc = opendir("/proc");
 	if (proc == NULL) {
-		logg->logMessage("%s(%s:%i): opendir failed", __FUNCTION__, __FILE__, __LINE__);
+		logg.logMessage("opendir failed");
 		return result;
 	}
 
@@ -175,28 +170,35 @@ bool readProcComms(const uint64_t currTime, Buffer *const buffer, DynBuf *const 
 		}
 
 		if (!printb->printf("/proc/%i/stat", pid)) {
-			logg->logMessage("%s(%s:%i): DynBuf::printf failed", __FUNCTION__, __FILE__, __LINE__);
+			logg.logMessage("DynBuf::printf failed");
 			goto fail;
 		}
 		ProcStat ps;
 		if (!readProcStat(&ps, printb->getBuf(), b1)) {
-			logg->logMessage("%s(%s:%i): readProcStat failed", __FUNCTION__, __FILE__, __LINE__);
+			logg.logMessage("readProcStat failed");
 			goto fail;
 		}
 
 		if (ps.numThreads <= 1) {
 			const char *const image = readProcExe(printb, pid, -1, b1);
 			if (image == NULL) {
-				logg->logMessage("%s(%s:%i): readImage failed", __FUNCTION__, __FILE__, __LINE__);
+				logg.logMessage("readImage failed");
 				goto fail;
 			}
 
-			buffer->comm(currTime, pid, pid, image, ps.comm);
+			buffer->marshalComm(currTime, pid, pid, image, ps.comm);
 		} else {
 			if (!readProcTask(currTime, buffer, pid, printb, b1, b2)) {
-				logg->logMessage("%s(%s:%i): readProcTask failed", __FUNCTION__, __FILE__, __LINE__);
+				logg.logMessage("readProcTask failed");
 				goto fail;
 			}
+		}
+	}
+
+	if (gSessionData.mFtraceRaw) {
+		if (!gSessionData.mFtraceDriver.readTracepointFormats(currTime, buffer, printb, b1)) {
+			logg.logMessage("FtraceDriver::readTracepointFormats failed");
+			goto fail;
 		}
 	}
 
@@ -213,7 +215,7 @@ bool readProcMaps(const uint64_t currTime, Buffer *const buffer, DynBuf *const p
 
 	DIR *proc = opendir("/proc");
 	if (proc == NULL) {
-		logg->logMessage("%s(%s:%i): opendir failed", __FUNCTION__, __FILE__, __LINE__);
+		logg.logMessage("opendir failed");
 		return result;
 	}
 
@@ -227,16 +229,16 @@ bool readProcMaps(const uint64_t currTime, Buffer *const buffer, DynBuf *const p
 		}
 
 		if (!printb->printf("/proc/%i/maps", pid)) {
-			logg->logMessage("%s(%s:%i): DynBuf::printf failed", __FUNCTION__, __FILE__, __LINE__);
+			logg.logMessage("DynBuf::printf failed");
 			goto fail;
 		}
 		if (!b->read(printb->getBuf())) {
-			logg->logMessage("%s(%s:%i): DynBuf::read failed, likely because the process exited", __FUNCTION__, __FILE__, __LINE__);
+			logg.logMessage("DynBuf::read failed, likely because the process exited");
 			// This is not a fatal error - the process just doesn't exist any more
 			continue;
 		}
 
-		buffer->maps(currTime, pid, pid, b->getBuf());
+		buffer->marshalMaps(currTime, pid, pid, b->getBuf());
 	}
 
 	result = true;
@@ -251,16 +253,16 @@ bool readKallsyms(const uint64_t currTime, Buffer *const buffer, const bool *con
 	int fd = ::open("/proc/kallsyms", O_RDONLY | O_CLOEXEC);
 
 	if (fd < 0) {
-		logg->logMessage("%s(%s:%i): open failed", __FUNCTION__, __FILE__, __LINE__);
+		logg.logMessage("open failed");
 		return true;
 	};
 
 	char buf[1<<12];
 	ssize_t pos = 0;
-	while (gSessionData->mSessionIsActive && !ACCESS_ONCE(*isDone)) {
+	while (gSessionData.mSessionIsActive && !ACCESS_ONCE(*isDone)) {
 		// Assert there is still space in the buffer
 		if (sizeof(buf) - pos - 1 == 0) {
-			logg->logError(__FILE__, __LINE__, "no space left in buffer");
+			logg.logError("no space left in buffer");
 			handleException();
 		}
 
@@ -268,13 +270,13 @@ bool readKallsyms(const uint64_t currTime, Buffer *const buffer, const bool *con
 			// -1 to reserve space for \0
 			const ssize_t bytes = ::read(fd, buf + pos, sizeof(buf) - pos - 1);
 			if (bytes < 0) {
-				logg->logError(__FILE__, __LINE__, "read failed", __FUNCTION__, __FILE__, __LINE__);
+				logg.logError("read failed");
 				handleException();
 			}
 			if (bytes == 0) {
 				// Assert the buffer is empty
 				if (pos != 0) {
-					logg->logError(__FILE__, __LINE__, "buffer not empty on eof");
+					logg.logError("buffer not empty on eof");
 					handleException();
 				}
 				break;
@@ -288,13 +290,13 @@ bool readKallsyms(const uint64_t currTime, Buffer *const buffer, const bool *con
 			if (buf[newline] == '\n') {
 				const char was = buf[newline + 1];
 				buf[newline + 1] = '\0';
-				buffer->kallsyms(currTime, buf);
+				buffer->marshalKallsyms(currTime, buf);
 				// Sleep 3 ms to avoid sending out too much data too quickly
 				usleep(3000);
 				buf[0] = was;
 				// Assert the memory regions do not overlap
 				if (pos - newline >= newline + 1) {
-					logg->logError(__FILE__, __LINE__, "memcpy src and dst overlap");
+					logg.logError("memcpy src and dst overlap");
 					handleException();
 				}
 				if (pos - newline - 2 > 0) {
@@ -307,6 +309,20 @@ bool readKallsyms(const uint64_t currTime, Buffer *const buffer, const bool *con
 	}
 
 	close(fd);
+
+	return true;
+}
+
+bool readTracepointFormat(const uint64_t currTime, Buffer *const buffer, const char *const name, DynBuf *const printb, DynBuf *const b) {
+	if (!printb->printf(EVENTS_PATH "/%s/format", name)) {
+		logg.logMessage("DynBuf::printf failed");
+		return false;
+	}
+	if (!b->read(printb->getBuf())) {
+		logg.logMessage("DynBuf::read failed");
+		return false;
+	}
+	buffer->marshalFormat(currTime, b->getLength(), b->getBuf());
 
 	return true;
 }

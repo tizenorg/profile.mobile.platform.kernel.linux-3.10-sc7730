@@ -1,5 +1,5 @@
 /**
- * Copyright (C) ARM Limited 2010-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2010-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -27,11 +27,7 @@ GATOR_DEFINE_PROBE(irq_handler_exit,
 	atomic_inc(&per_cpu(irqCnt, get_physical_cpu())[HARDIRQ]);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 37)
-GATOR_DEFINE_PROBE(softirq_exit, TP_PROTO(struct softirq_action *h, struct softirq_action *vec))
-#else
 GATOR_DEFINE_PROBE(softirq_exit, TP_PROTO(unsigned int vec_nr))
-#endif
 {
 	atomic_inc(&per_cpu(irqCnt, get_physical_cpu())[SOFTIRQ]);
 }
@@ -144,6 +140,7 @@ static int gator_events_irq_read(int **buffer, bool sched_switch)
 }
 
 static struct gator_interface gator_events_irq_interface = {
+	.name = "irq",
 	.create_files = gator_events_irq_create_files,
 	.online = gator_events_irq_online,
 	.start = gator_events_irq_start,

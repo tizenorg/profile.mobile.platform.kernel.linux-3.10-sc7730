@@ -1,5 +1,5 @@
 /**
- * Copyright (C) ARM Limited 2010-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2010-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -26,8 +26,9 @@ class Sender {
 public:
 	Sender(OlySocket* socket);
 	~Sender();
-	void writeData(const char* data, int length, int type);
+	void writeData(const char* data, int length, int type, bool ignoreLockErrors = false);
 	void createDataFile(char* apcDir);
+
 private:
 	OlySocket* mDataSocket;
 	FILE* mDataFile;
