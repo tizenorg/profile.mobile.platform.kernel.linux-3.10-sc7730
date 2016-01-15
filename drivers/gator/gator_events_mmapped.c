@@ -1,7 +1,7 @@
 /*
  * Example events provider
  *
- * Copyright (C) ARM Limited 2010-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2010-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -189,6 +189,7 @@ static int gator_events_mmapped_read(int **buffer, bool sched_switch)
 }
 
 static struct gator_interface gator_events_mmapped_interface = {
+	.name = "mmapped",
 	.create_files = gator_events_mmapped_create_files,
 	.start = gator_events_mmapped_start,
 	.stop = gator_events_mmapped_stop,

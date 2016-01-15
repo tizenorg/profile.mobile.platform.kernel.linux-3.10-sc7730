@@ -1,5 +1,5 @@
 /**
- * Copyright (C) ARM Limited 2010-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2010-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -18,10 +18,10 @@ static ulong sched_switch_key;
 static DEFINE_PER_CPU(int[SCHED_TOTAL], schedCnt);
 static DEFINE_PER_CPU(int[SCHED_TOTAL * 2], schedGet);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 35)
-GATOR_DEFINE_PROBE(sched_switch, TP_PROTO(struct rq *rq, struct task_struct *prev, struct task_struct *next))
-#else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
 GATOR_DEFINE_PROBE(sched_switch, TP_PROTO(struct task_struct *prev, struct task_struct *next))
+#else
+GATOR_DEFINE_PROBE(sched_switch, TP_PROTO(bool preempt, struct task_struct *prev, struct task_struct *next))
 #endif
 {
 	unsigned long flags;
@@ -97,6 +97,7 @@ static int gator_events_sched_read(int **buffer, bool sched_switch)
 }
 
 static struct gator_interface gator_events_sched_interface = {
+	.name = "sched",
 	.create_files = gator_events_sched_create_files,
 	.start = gator_events_sched_start,
 	.stop = gator_events_sched_stop,

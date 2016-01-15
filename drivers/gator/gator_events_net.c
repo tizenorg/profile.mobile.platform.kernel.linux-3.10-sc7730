@@ -1,5 +1,5 @@
 /**
- * Copyright (C) ARM Limited 2010-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2010-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -32,12 +32,8 @@ static void get_network_stats(struct work_struct *wsptr)
 	struct net_device *dev;
 
 	for_each_netdev(&init_net, dev) {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 36)
-		const struct net_device_stats *stats = dev_get_stats(dev);
-#else
 		struct rtnl_link_stats64 temp;
 		const struct rtnl_link_stats64 *stats = dev_get_stats(dev, &temp);
-#endif
 		rx += stats->rx_bytes;
 		tx += stats->tx_bytes;
 	}
@@ -45,7 +41,7 @@ static void get_network_stats(struct work_struct *wsptr)
 	tx_total = tx;
 }
 
-DECLARE_WORK(wq_get_stats, get_network_stats);
+static DECLARE_WORK(wq_get_stats, get_network_stats);
 
 static void net_wake_up_handler(unsigned long unused_data)
 {
@@ -95,14 +91,10 @@ static int gator_events_net_create_files(struct super_block *sb, struct dentry *
 
 static int gator_events_net_start(void)
 {
-	get_network_stats(0);
+	get_network_stats(NULL);
 	netPrev[NETRX] = rx_total;
 	netPrev[NETTX] = tx_total;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 36)
-	setup_timer(&net_wake_up_timer, net_wake_up_handler, 0);
-#else
 	setup_deferrable_timer_on_stack(&net_wake_up_timer, net_wake_up_handler, 0);
-#endif
 	return 0;
 }
 
@@ -154,6 +146,7 @@ static int gator_events_net_read(int **buffer, bool sched_switch)
 }
 
 static struct gator_interface gator_events_net_interface = {
+	.name = "net",
 	.create_files = gator_events_net_create_files,
 	.start = gator_events_net_start,
 	.stop = gator_events_net_stop,

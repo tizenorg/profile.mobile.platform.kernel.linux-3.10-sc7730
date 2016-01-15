@@ -1,5 +1,5 @@
 /**
- * Copyright (C) ARM Limited 2010-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2010-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -8,9 +8,7 @@
  */
 
 #include <trace/events/sched.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)
 #include <trace/events/task.h>
-#endif
 
 #include "gator.h"
 
@@ -27,30 +25,31 @@ enum {
 static DEFINE_PER_CPU(uint64_t *, taskname_keys);
 static DEFINE_PER_CPU(int, collecting);
 
-/* this array is never read as the cpu wait charts are derived
+/* this array is never read as the cpu charts are derived
  * counters the files are needed, nonetheless, to show that these
  * counters are available
  */
-static ulong cpu_wait_enabled[CPU_WAIT_TOTAL];
-static ulong sched_cpu_key[CPU_WAIT_TOTAL];
+static const char *sched_trace_event_names[] = {
+	"Linux_cpu_wait_contention",
+	"Linux_cpu_wait_io",
+	"Linux_cpu_system",
+	"Linux_cpu_user",
+};
+static ulong sched_trace_enabled[ARRAY_SIZE(sched_trace_event_names)];
+static ulong sched_trace_keys[ARRAY_SIZE(sched_trace_event_names)];
 
 static int sched_trace_create_files(struct super_block *sb, struct dentry *root)
 {
 	struct dentry *dir;
+	int i;
 
-	/* CPU Wait - Contention */
-	dir = gatorfs_mkdir(sb, root, "Linux_cpu_wait_contention");
-	if (!dir)
-		return -1;
-	gatorfs_create_ulong(sb, dir, "enabled", &cpu_wait_enabled[STATE_CONTENTION]);
-	gatorfs_create_ro_ulong(sb, dir, "key", &sched_cpu_key[STATE_CONTENTION]);
-
-	/* CPU Wait - I/O */
-	dir = gatorfs_mkdir(sb, root, "Linux_cpu_wait_io");
-	if (!dir)
-		return -1;
-	gatorfs_create_ulong(sb, dir, "enabled", &cpu_wait_enabled[STATE_WAIT_ON_IO]);
-	gatorfs_create_ro_ulong(sb, dir, "key", &sched_cpu_key[STATE_WAIT_ON_IO]);
+	for (i = 0; i < ARRAY_SIZE(sched_trace_event_names); ++i) {
+		dir = gatorfs_mkdir(sb, root, sched_trace_event_names[i]);
+		if (!dir)
+			return -1;
+		gatorfs_create_ulong(sb, dir, "enabled", &sched_trace_enabled[i]);
+		gatorfs_create_ro_ulong(sb, dir, "key", &sched_trace_keys[i]);
+	}
 
 	return 0;
 }
@@ -104,13 +103,19 @@ static void collect_counters(u64 time, struct task_struct *task, bool sched_swit
 		list_for_each_entry(gi, &gator_events, list) {
 			if (gi->read) {
 				len = gi->read(&buffer, sched_switch);
+				if (len < 0)
+					pr_err("gator: read failed for %s\n", gi->name);
 				marshal_event(len, buffer);
 			} else if (gi->read64) {
-				len = gi->read64(&buffer64);
+				len = gi->read64(&buffer64, sched_switch);
+				if (len < 0)
+					pr_err("gator: read64 failed for %s\n", gi->name);
 				marshal_event64(len, buffer64);
 			}
 			if (gi->read_proc && task != NULL) {
 				len = gi->read_proc(&buffer64, task);
+				if (len < 0)
+					pr_err("gator: read_proc failed for %s\n", gi->name);
 				marshal_event64(len, buffer64);
 			}
 		}
@@ -165,7 +170,6 @@ GATOR_DEFINE_PROBE(sched_process_fork, TP_PROTO(struct task_struct *parent, stru
 	gator_trace_emit_link(child);
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)
 GATOR_DEFINE_PROBE(sched_process_exec, TP_PROTO(struct task_struct *p, pid_t old_pid, struct linux_binprm *bprm))
 {
 	gator_trace_emit_link(p);
@@ -179,12 +183,11 @@ GATOR_DEFINE_PROBE(task_rename, TP_PROTO(struct task_struct *task, const char *c
 {
 	emit_pid_name(comm, task);
 }
-#endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 35)
-GATOR_DEFINE_PROBE(sched_switch, TP_PROTO(struct rq *rq, struct task_struct *prev, struct task_struct *next))
-#else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
 GATOR_DEFINE_PROBE(sched_switch, TP_PROTO(struct task_struct *prev, struct task_struct *next))
+#else
+GATOR_DEFINE_PROBE(sched_switch, TP_PROTO(bool preempt, struct task_struct *prev, struct task_struct *next))
 #endif
 {
 	int state;
@@ -204,9 +207,6 @@ GATOR_DEFINE_PROBE(sched_switch, TP_PROTO(struct task_struct *prev, struct task_
 	collect_counters(gator_get_time(), prev, true);
 	per_cpu(collecting, cpu) = 0;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
-	gator_trace_emit_link(next);
-#endif
 	marshal_sched_trace_switch(next->pid, state);
 
 	per_cpu(in_scheduler_context, cpu) = false;
@@ -228,12 +228,10 @@ static int register_scheduler_tracepoints(void)
 	/* register tracepoints */
 	if (GATOR_REGISTER_TRACE(sched_process_fork))
 		goto fail_sched_process_fork;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)
 	if (GATOR_REGISTER_TRACE(sched_process_exec))
 		goto fail_sched_process_exec;
 	if (GATOR_REGISTER_TRACE(task_rename))
 		goto fail_task_rename;
-#endif
 	if (GATOR_REGISTER_TRACE(sched_switch))
 		goto fail_sched_switch;
 	if (GATOR_REGISTER_TRACE(sched_process_free))
@@ -251,12 +249,10 @@ static int register_scheduler_tracepoints(void)
 fail_sched_process_free:
 	GATOR_UNREGISTER_TRACE(sched_switch);
 fail_sched_switch:
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)
 	GATOR_UNREGISTER_TRACE(task_rename);
 fail_task_rename:
 	GATOR_UNREGISTER_TRACE(sched_process_exec);
 fail_sched_process_exec:
-#endif
 	GATOR_UNREGISTER_TRACE(sched_process_fork);
 fail_sched_process_fork:
 	pr_err("gator: tracepoints failed to activate, please verify that tracepoints are enabled in the linux kernel\n");
@@ -267,10 +263,8 @@ fail_sched_process_fork:
 static void unregister_scheduler_tracepoints(void)
 {
 	GATOR_UNREGISTER_TRACE(sched_process_fork);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)
 	GATOR_UNREGISTER_TRACE(sched_process_exec);
 	GATOR_UNREGISTER_TRACE(task_rename);
-#endif
 	GATOR_UNREGISTER_TRACE(sched_switch);
 	GATOR_UNREGISTER_TRACE(sched_process_free);
 	pr_debug("gator: unregistered tracepoints\n");
@@ -314,8 +308,8 @@ static void gator_trace_sched_init(void)
 {
 	int i;
 
-	for (i = 0; i < CPU_WAIT_TOTAL; i++) {
-		cpu_wait_enabled[i] = 0;
-		sched_cpu_key[i] = gator_events_get_key();
+	for (i = 0; i < ARRAY_SIZE(sched_trace_enabled); i++) {
+		sched_trace_enabled[i] = 0;
+		sched_trace_keys[i] = gator_events_get_key();
 	}
 }

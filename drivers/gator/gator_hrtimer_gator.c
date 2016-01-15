@@ -1,5 +1,5 @@
 /**
- * Copyright (C) ARM Limited 2011-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2011-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -7,10 +7,10 @@
  *
  */
 
-void (*callback)(void);
-DEFINE_PER_CPU(struct hrtimer, percpu_hrtimer);
-DEFINE_PER_CPU(ktime_t, hrtimer_expire);
-DEFINE_PER_CPU(int, hrtimer_is_active);
+static void (*callback)(void);
+static DEFINE_PER_CPU(struct hrtimer, percpu_hrtimer);
+static DEFINE_PER_CPU(ktime_t, hrtimer_expire);
+static DEFINE_PER_CPU(int, hrtimer_is_active);
 static ktime_t profiling_interval;
 static void gator_hrtimer_online(void);
 static void gator_hrtimer_offline(void);
