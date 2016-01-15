@@ -1,5 +1,5 @@
 /**
- * Copyright (C) ARM Limited 2010-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2010-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -8,71 +8,75 @@
 
 #include "Logging.h"
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include <string.h>
 
-#ifdef WIN32
-#define MUTEX_INIT()    mLoggingMutex = CreateMutex(NULL, false, NULL);
-#define MUTEX_LOCK()    WaitForSingleObject(mLoggingMutex, 0xFFFFFFFF);
-#define MUTEX_UNLOCK()  ReleaseMutex(mLoggingMutex);
-#define snprintf _snprintf
-#else
-#include <pthread.h>
-#define MUTEX_INIT()    pthread_mutex_init(&mLoggingMutex, NULL)
-#define MUTEX_LOCK()    pthread_mutex_lock(&mLoggingMutex)
-#define MUTEX_UNLOCK()  pthread_mutex_unlock(&mLoggingMutex)
-#endif
-
 // Global thread-safe logging
-Logging* logg = NULL;
+Logging logg;
 
-Logging::Logging(bool debug) {
-	mDebug = debug;
-	MUTEX_INIT();
+Logging::Logging() : mDebug(true) {
+	pthread_mutex_init(&mLoggingMutex, NULL);
 
 	strcpy(mErrBuf, "Unknown Error");
-	strcpy(mLogBuf, "Unknown Message");
 }
 
 Logging::~Logging() {
 }
 
-void Logging::logError(const char* file, int line, const char* fmt, ...) {
-	va_list args;
+static void format(char *const buf, const size_t bufSize, const bool verbose, const char *const level, const char *const function, const char *const file, const int line, const char *const fmt, va_list args) {
+	int len;
 
-	MUTEX_LOCK();
-	if (mDebug) {
-		snprintf(mErrBuf, sizeof(mErrBuf), "ERROR[%s:%d]: ", file, line);
+	if (verbose) {
+		len = snprintf(buf, bufSize, "%s: %s(%s:%i): ", level, function, file, line);
 	} else {
-		mErrBuf[0] = 0;
+		buf[0] = 0;
+		len = 0;
 	}
 
-	va_start(args, fmt);
-	vsnprintf(mErrBuf + strlen(mErrBuf), sizeof(mErrBuf) - 2 - strlen(mErrBuf), fmt, args); //  subtract 2 for \n and \0
-	va_end(args);
-
-	if (strlen(mErrBuf) > 0) {
-		strcat(mErrBuf, "\n");
-	}
-	MUTEX_UNLOCK();
+	vsnprintf(buf + len, bufSize - 1 - len, fmt, args); //  subtract 1 for \0
 }
 
-void Logging::logMessage(const char* fmt, ...) {
+void Logging::_logError(const char *function, const char *file, int line, const char *fmt, ...) {
+	va_list args;
+
+	pthread_mutex_lock(&mLoggingMutex);
+	va_start(args, fmt);
+	format(mErrBuf, sizeof(mErrBuf), mDebug, "ERROR", function, file, line, fmt, args);
+	va_end(args);
+	pthread_mutex_unlock(&mLoggingMutex);
+
+	fprintf(stderr, "%s\n", mErrBuf);
+}
+
+void Logging::_logSetup(const char *function, const char *file, int line, const char *fmt, ...) {
+	char logBuf[4096]; // Arbitrarily large buffer to hold a string
+	va_list args;
+
+	va_start(args, fmt);
+	format(logBuf, sizeof(logBuf), mDebug, "SETUP", function, file, line, fmt, args);
+	va_end(args);
+
+	pthread_mutex_lock(&mLoggingMutex);
+	mSetup.appendStr(logBuf);
+	mSetup.appendStr("|");
+	pthread_mutex_unlock(&mLoggingMutex);
+
 	if (mDebug) {
+		fprintf(stderr, "%s\n", logBuf);
+	}
+}
+
+void Logging::_logMessage(const char *function, const char *file, int line, const char *fmt, ...) {
+	if (mDebug) {
+		char logBuf[4096]; // Arbitrarily large buffer to hold a string
 		va_list args;
 
-		MUTEX_LOCK();
-		strcpy(mLogBuf, "INFO: ");
-
 		va_start(args, fmt);
-		vsnprintf(mLogBuf + strlen(mLogBuf), sizeof(mLogBuf) - 2 - strlen(mLogBuf), fmt, args); //  subtract 2 for \n and \0
+		format(logBuf, sizeof(logBuf), mDebug, "INFO", function, file, line, fmt, args);
 		va_end(args);
-		strcat(mLogBuf, "\n");
 
-		fprintf(stdout, "%s", mLogBuf);
-		fflush(stdout);
-		MUTEX_UNLOCK();
+		fprintf(stderr, "%s\n", logBuf);
 	}
 }

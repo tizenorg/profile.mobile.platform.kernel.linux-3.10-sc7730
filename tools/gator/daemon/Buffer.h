@@ -1,5 +1,5 @@
 /**
- * Copyright (C) ARM Limited 2013-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2013-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -36,11 +36,12 @@ public:
 
 	int bytesAvailable() const;
 	int contiguousSpaceAvailable() const;
-	void commit(const uint64_t time);
+	bool hasUncommittedMessages() const;
+	void commit(const uint64_t time, const bool force = false);
 	void check(const uint64_t time);
 
 	// Summary messages
-	void summary(const uint64_t currTime, const int64_t timestamp, const int64_t uptime, const int64_t monotonicDelta, const char *const uname);
+	void summary(const uint64_t currTime, const int64_t timestamp, const int64_t uptime, const int64_t monotonicDelta, const char *const uname, const long pageSize, const bool nosync);
 	void coreName(const uint64_t currTime, const int core, const int cpuid, const char *const name);
 
 	// Block Counter messages
@@ -50,15 +51,20 @@ public:
 	void event64(int key, int64_t value);
 
 	// Perf Attrs messages
-	void pea(const uint64_t currTime, const struct perf_event_attr *const pea, int key);
-	void keys(const uint64_t currTime, const int count, const __u64 *const ids, const int *const keys);
-	void keysOld(const uint64_t currTime, const int keyCount, const int *const keys, const int bytes, const char *const buf);
-	void format(const uint64_t currTime, const int length, const char *const format);
-	void maps(const uint64_t currTime, const int pid, const int tid, const char *const maps);
-	void comm(const uint64_t currTime, const int pid, const int tid, const char *const image, const char *const comm);
-	void onlineCPU(const uint64_t currTime, const uint64_t time, const int cpu);
-	void offlineCPU(const uint64_t currTime, const uint64_t time, const int cpu);
-	void kallsyms(const uint64_t currTime, const char *const kallsyms);
+	void marshalPea(const uint64_t currTime, const struct perf_event_attr *const pea, int key);
+	void marshalKeys(const uint64_t currTime, const int count, const __u64 *const ids, const int *const keys);
+	void marshalKeysOld(const uint64_t currTime, const int keyCount, const int *const keys, const int bytes, const char *const buf);
+	void marshalFormat(const uint64_t currTime, const int length, const char *const format);
+	void marshalMaps(const uint64_t currTime, const int pid, const int tid, const char *const maps);
+	void marshalComm(const uint64_t currTime, const int pid, const int tid, const char *const image, const char *const comm);
+	void onlineCPU(const uint64_t currTime, const int cpu);
+	void offlineCPU(const uint64_t currTime, const int cpu);
+	void marshalKallsyms(const uint64_t currTime, const char *const kallsyms);
+	void perfCounterHeader(const uint64_t time);
+	void perfCounter(const int core, const int key, const int64_t value);
+	void perfCounterFooter(const uint64_t currTime);
+	void marshalHeaderPage(const uint64_t currTime, const char *const headerPage);
+	void marshalHeaderEvent(const uint64_t currTime, const char *const headerEvent);
 
 	void setDone();
 	bool isDone() const;
@@ -73,11 +79,22 @@ public:
 	void writeBytes(const void *const data, size_t count);
 	void writeString(const char *const str);
 
-	static void writeLEInt(unsigned char *buf, int v) {
+	static void writeLEInt(unsigned char *buf, uint32_t v) {
 		buf[0] = (v >> 0) & 0xFF;
 		buf[1] = (v >> 8) & 0xFF;
 		buf[2] = (v >> 16) & 0xFF;
 		buf[3] = (v >> 24) & 0xFF;
+	}
+
+	static void writeLELong(unsigned char *buf, uint64_t v) {
+		buf[0] = (v >> 0) & 0xFF;
+		buf[1] = (v >> 8) & 0xFF;
+		buf[2] = (v >> 16) & 0xFF;
+		buf[3] = (v >> 24) & 0xFF;
+		buf[4] = (v >> 32) & 0xFF;
+		buf[5] = (v >> 40) & 0xFF;
+		buf[6] = (v >> 48) & 0xFF;
+		buf[7] = (v >> 56) & 0xFF;
 	}
 
 private:

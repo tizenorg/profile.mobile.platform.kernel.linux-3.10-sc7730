@@ -1,5 +1,5 @@
 /**
- * Copyright (C) ARM Limited 2013-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2013-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -10,8 +10,8 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "Logging.h"
@@ -42,7 +42,7 @@ bool DynBuf::read(const char *const path) {
 
 	const int fd = open(path, O_RDONLY | O_CLOEXEC);
 	if (fd < 0) {
-		logg->logMessage("%s(%s:%i): open failed", __FUNCTION__, __FILE__, __LINE__);
+		logg.logMessage("open failed");
 		return false;
 	}
 
@@ -52,14 +52,14 @@ bool DynBuf::read(const char *const path) {
 		const size_t minCapacity = length + MIN_BUFFER_FREE + 1;
 		if (capacity < minCapacity) {
 			if (resize(minCapacity) != 0) {
-				logg->logMessage("%s(%s:%i): DynBuf::resize failed", __FUNCTION__, __FILE__, __LINE__);
+				logg.logMessage("DynBuf::resize failed");
 				goto fail;
 			}
 		}
 
 		const ssize_t bytes = ::read(fd, buf + length, capacity - length - 1);
 		if (bytes < 0) {
-			logg->logMessage("%s(%s:%i): read failed", __FUNCTION__, __FILE__, __LINE__);
+			logg.logMessage("read failed");
 			goto fail;
 		} else if (bytes == 0) {
 			break;
@@ -102,38 +102,84 @@ int DynBuf::readlink(const char *const path) {
 
 bool DynBuf::printf(const char *format, ...) {
 	va_list ap;
+	bool result;
+
+	length = 0;
+
+	va_start(ap, format);
+	result = append(format, ap);
+	va_end(ap);
+
+	return result;
+}
+
+bool DynBuf::append(const char *format, ...) {
+	va_list ap;
+	bool result;
+
+	va_start(ap, format);
+	result = append(format, ap);
+	va_end(ap);
+
+	return result;
+}
+
+bool DynBuf::append(const char *format, va_list ap) {
+	va_list dup;
 
 	if (capacity <= 0) {
 		if (resize(2 * MIN_BUFFER_FREE) != 0) {
-			logg->logMessage("%s(%s:%i): DynBuf::resize failed", __FUNCTION__, __FILE__, __LINE__);
+			logg.logMessage("DynBuf::resize failed");
 			return false;
 		}
 	}
 
-	va_start(ap, format);
-	int bytes = vsnprintf(buf, capacity, format, ap);
-	va_end(ap);
+	va_copy(dup, ap);
+	int bytes = vsnprintf(buf + length, capacity - length, format, dup);
 	if (bytes < 0) {
-		logg->logMessage("%s(%s:%i): fsnprintf failed", __FUNCTION__, __FILE__, __LINE__);
+		logg.logMessage("fsnprintf failed");
 		return false;
 	}
+	bytes += length;
 
-	if (static_cast<size_t>(bytes) > capacity) {
+	if (static_cast<size_t>(bytes) >= capacity) {
 		if (resize(bytes + 1) != 0) {
-			logg->logMessage("%s(%s:%i): DynBuf::resize failed", __FUNCTION__, __FILE__, __LINE__);
+			logg.logMessage("DynBuf::resize failed");
 			return false;
 		}
 
-		va_start(ap, format);
-		bytes = vsnprintf(buf, capacity, format, ap);
-		va_end(ap);
+		bytes = vsnprintf(buf + length, capacity - length, format, ap);
 		if (bytes < 0) {
-			logg->logMessage("%s(%s:%i): fsnprintf failed", __FUNCTION__, __FILE__, __LINE__);
+			logg.logMessage("fsnprintf failed");
 			return false;
 		}
+		bytes += length;
 	}
 
 	length = bytes;
+
+	return true;
+}
+
+bool DynBuf::appendStr(const char *str) {
+	if (capacity <= 0) {
+		if (resize(2 * MIN_BUFFER_FREE) != 0) {
+			logg.logMessage("DynBuf::resize failed");
+			return false;
+		}
+	}
+
+	size_t bytes = strlen(str);
+	if (length + bytes >= capacity) {
+		if (resize(length + bytes + 1) != 0) {
+			logg.logMessage("DynBuf::resize failed");
+			return false;
+		}
+	}
+
+	memcpy(buf + length, str, bytes + 1);
+
+	length += bytes;
 
 	return true;
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) ARM Limited 2010-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2010-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -32,17 +32,21 @@ public:
 private:
 	void waitFor(const int bytes);
 	void configureConnection(const int fd, const char *const handshake, size_t size);
-	bool connectMali();
+	bool connectMidgard();
 	bool connectMve();
+	void connectFtrace();
+	bool transfer(const uint64_t currTime, const int fd);
 
 	sem_t mBufferSem;
 	Buffer mBuffer;
 	Monitor mMonitor;
 	OlyServerSocket mMveStartupUds;
-	OlyServerSocket mMaliStartupUds;
+	OlyServerSocket mMidgardStartupUds;
+	OlyServerSocket mUtgardStartupUds;
 	OlyServerSocket mAnnotate;
+	OlyServerSocket mAnnotateUds;
 	int mInterruptFd;
-	int mMaliUds;
+	int mMidgardUds;
 	int mMveUds;
 
 	// Intentionally unimplemented

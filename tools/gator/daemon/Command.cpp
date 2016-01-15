@@ -1,5 +1,5 @@
 /**
- * Copyright (C) ARM Limited 2014. All rights reserved.
+ * Copyright (C) ARM Limited 2014-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -9,6 +9,7 @@
 #include "Command.h"
 
 #include <fcntl.h>
+#include <grp.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <sys/prctl.h>
@@ -23,14 +24,14 @@
 #include "Logging.h"
 #include "SessionData.h"
 
-static int getUid(const char *const name, char *const shPath, const char *const tmpDir) {
+static int getUid(const char *const name, const char *const tmpDir, uid_t *const uid) {
 	// Lookups may fail when using a different libc or a statically compiled executable
 	char gatorTemp[32];
 	snprintf(gatorTemp, sizeof(gatorTemp), "%s/gator_temp", tmpDir);
 
 	const int fd = open(gatorTemp, 600, O_CREAT | O_CLOEXEC);
 	if (fd < 0) {
-		return -1;
+		return false;
 	}
 	close(fd);
 
@@ -39,90 +40,77 @@ static int getUid(const char *const name, char *const shPath, const char *const 
 
 	const int pid = fork();
 	if (pid < 0) {
-		logg->logError(__FILE__, __LINE__, "fork failed");
+		logg.logError("fork failed");
 		handleException();
 	}
 	if (pid == 0) {
-		char cargv1[] = "-c";
-		char *cargv[] = {
-			shPath,
-			cargv1,
-			cmd,
-			NULL,
-		};
-
-		execv(cargv[0], cargv);
+		execlp("sh", "sh", "-c", cmd, NULL);
 		exit(-1);
 	}
 	while ((waitpid(pid, NULL, 0) < 0) && (errno == EINTR));
 
 	struct stat st;
 	int result = -1;
-	if (stat(gatorTemp, &st) == 0) {
-		result = st.st_uid;
+	if (stat(gatorTemp, &st) != 0) {
+	  return false;
 	}
+	result = st.st_uid;
 	unlink(gatorTemp);
-	return result;
+	*uid = result;
+	return true;
 }
 
-static int getUid(const char *const name) {
+static bool getUid(const char *const name, uid_t *const uid, gid_t *const gid) {
 	// Look up the username
 	struct passwd *const user = getpwnam(name);
 	if (user != NULL) {
-		return user->pw_uid;
+		*uid = user->pw_uid;
+		*gid = user->pw_gid;
+		return true;
 	}
 
+	// Unable to get the user without getpwanm, so create a unique uid by adding a fixed number to the pid
+	*gid = 0x484560f8 + getpid();
 
 	// Are we on Linux
-	char cargv0l[] = "/bin/sh";
-	if ((access(cargv0l, X_OK) == 0) && (access("/tmp", W_OK) == 0)) {
-		return getUid(name, cargv0l, "/tmp");
+	if (access("/tmp", W_OK) == 0) {
+		return getUid(name, "/tmp", uid);
 	}
 
 	// Are we on android
-	char cargv0a[] = "/system/bin/sh";
-	if ((access(cargv0a, X_OK) == 0) && (access("/data", W_OK) == 0)) {
-		return getUid(name, cargv0a, "/data");
+	if (access("/data", W_OK) == 0) {
+		return getUid(name, "/data", uid);
 	}
 
-	return -1;
+	return false;
 }
 
 void *commandThread(void *) {
 	prctl(PR_SET_NAME, (unsigned long)&"gatord-command", 0, 0, 0);
 
-	const char *const name = gSessionData->mCaptureUser == NULL ? "nobody" : gSessionData->mCaptureUser;
-	const int uid = getUid(name);
-	if (uid < 0) {
-		logg->logError(__FILE__, __LINE__, "Unable to lookup the user %s, please double check that the user exists", name);
+	const char *const name = gSessionData.mCaptureUser == NULL ? "nobody" : gSessionData.mCaptureUser;
+	uid_t uid;
+	gid_t gid;
+	if (!getUid(name, &uid, &gid)) {
+		logg.logError("Unable to look up the user %s, please double check that the user exists", name);
 		handleException();
 	}
 
 	sleep(3);
 
-	char buf[128];
+	char buf[1<<8];
 	int pipefd[2];
 	if (pipe_cloexec(pipefd) != 0) {
-		logg->logError(__FILE__, __LINE__, "pipe failed");
+		logg.logError("pipe failed");
 		handleException();
 	}
 
 	const int pid = fork();
 	if (pid < 0) {
-		logg->logError(__FILE__, __LINE__, "fork failed");
+		logg.logError("fork failed");
 		handleException();
 	}
 	if (pid == 0) {
-		char cargv0l[] = "/bin/sh";
-		char cargv0a[] = "/system/bin/sh";
-		char cargv1[] = "-c";
-		char *cargv[] = {
-			cargv0l,
-			cargv1,
-			gSessionData->mCaptureCommand,
-			NULL,
-		};
-
 		buf[0] = '\0';
 		close(pipefd[0]);
 
@@ -132,22 +120,28 @@ void *commandThread(void *) {
 			goto fail_exit;
 		}
 
-		if (setuid(uid) != 0) {
-			snprintf(buf, sizeof(buf), "setuid failed");
+		if (setgroups(1, &gid) != 0) {
+			snprintf(buf, sizeof(buf), "setgroups failed");
+			goto fail_exit;
+		}
+		if (setresgid(gid, gid, gid) != 0) {
+			snprintf(buf, sizeof(buf), "setresgid failed");
+			goto fail_exit;
+		}
+		if (setresuid(uid, uid, uid) != 0) {
+			snprintf(buf, sizeof(buf), "setresuid failed");
 			goto fail_exit;
 		}
 
 		{
-			const char *const path = gSessionData->mCaptureWorkingDir == NULL ? "/" : gSessionData->mCaptureWorkingDir;
+			const char *const path = gSessionData.mCaptureWorkingDir == NULL ? "/" : gSessionData.mCaptureWorkingDir;
 			if (chdir(path) != 0) {
-				snprintf(buf, sizeof(buf), "Unable to cd to %s, please verify the directory exists and is accessable to %s", path, name);
+				snprintf(buf, sizeof(buf), "Unable to cd to %s, please verify the directory exists and is accessible to %s", path, name);
 				goto fail_exit;
 			}
 		}
 
-		execv(cargv[0], cargv);
-		cargv[0] = cargv0a;
-		execv(cargv[0], cargv);
+		execlp("sh", "sh", "-c", gSessionData.mCaptureCommand, NULL);
 		snprintf(buf, sizeof(buf), "execv failed");
 
 	fail_exit:
@@ -163,7 +157,7 @@ void *commandThread(void *) {
 	close(pipefd[1]);
 	const ssize_t bytes = read(pipefd[0], buf, sizeof(buf));
 	if (bytes > 0) {
-		logg->logError(__FILE__, __LINE__, buf);
+		logg.logError("%s", buf);
 		handleException();
 	}
 	close(pipefd[0]);

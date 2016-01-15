@@ -1,5 +1,5 @@
 /**
- * Copyright (C) ARM Limited 2010-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2010-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -32,9 +32,8 @@ mxml_node_t* CapturedXML::getTree(bool includeTime) {
 
 	captured = mxmlNewElement(xml, "captured");
 	mxmlElementSetAttr(captured, "version", "1");
-	if (gSessionData->perf.isSetup()) {
+	if (gSessionData.mPerf.isSetup()) {
 		mxmlElementSetAttr(captured, "type", "Perf");
-		mxmlElementSetAttr(captured, "perf_beta", "yes");
 	}
 	mxmlElementSetAttrf(captured, "protocol", "%d", PROTOCOL_VERSION);
 	if (includeTime) { // Send the following only after the capture is complete
@@ -44,22 +43,22 @@ mxml_node_t* CapturedXML::getTree(bool includeTime) {
 	}
 
 	target = mxmlNewElement(captured, "target");
-	mxmlElementSetAttr(target, "name", gSessionData->mCoreName);
-	mxmlElementSetAttrf(target, "sample_rate", "%d", gSessionData->mSampleRate);
-	mxmlElementSetAttrf(target, "cores", "%d", gSessionData->mCores);
-	mxmlElementSetAttrf(target, "cpuid", "0x%x", gSessionData->mMaxCpuId);
+	mxmlElementSetAttr(target, "name", gSessionData.mCoreName);
+	mxmlElementSetAttrf(target, "sample_rate", "%d", gSessionData.mSampleRate);
+	mxmlElementSetAttrf(target, "cores", "%d", gSessionData.mCores);
+	mxmlElementSetAttrf(target, "cpuid", "0x%x", gSessionData.mMaxCpuId);
 
-	if (!gSessionData->mOneShot && (gSessionData->mSampleRate > 0)) {
+	if (!gSessionData.mOneShot && (gSessionData.mSampleRate > 0)) {
 		mxmlElementSetAttr(target, "supports_live", "yes");
 	}
 
-	if (gSessionData->mLocalCapture) {
+	if (gSessionData.mLocalCapture) {
 		mxmlElementSetAttr(target, "local_capture", "yes");
 	}
 
 	mxml_node_t *counters = NULL;
 	for (x = 0; x < MAX_PERFORMANCE_COUNTERS; x++) {
-		const Counter & counter = gSessionData->mCounters[x];
+		const Counter & counter = gSessionData.mCounters[x];
 		if (counter.isEnabled()) {
 			if (counters == NULL) {
 				counters = mxmlNewElement(captured, "counters");
@@ -97,8 +96,8 @@ void CapturedXML::write(char* path) {
 	snprintf(file, PATH_MAX, "%s/captured.xml", path);
 
 	char* xml = getXML(true);
-	if (util->writeToDisk(file, xml) < 0) {
-		logg->logError(__FILE__, __LINE__, "Error writing %s\nPlease verify the path.", file);
+	if (writeToDisk(file, xml) < 0) {
+		logg.logError("Error writing %s\nPlease verify the path.", file);
 		handleException();
 	}
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) ARM Limited 2010-2014. All rights reserved.
+ * Copyright (C) ARM Limited 2010-2015. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -30,7 +30,7 @@ Sender::Sender(OlySocket* socket) {
 		// Streamline will send data prior to the magic sequence for legacy support, which should be ignored for v4+
 		while (strcmp("STREAMLINE", streamline) != 0) {
 			if (mDataSocket->receiveString(streamline, sizeof(streamline)) == -1) {
-				logg->logError(__FILE__, __LINE__, "Socket disconnected");
+				logg.logError("Socket disconnected");
 				handleException();
 			}
 		}
@@ -40,11 +40,19 @@ Sender::Sender(OlySocket* socket) {
 		snprintf(magic, 32, "GATOR %i\n", PROTOCOL_VERSION);
 		mDataSocket->send(magic, strlen(magic));
 
-		gSessionData->mWaitingOnCommand = true;
-		logg->logMessage("Completed magic sequence");
+		gSessionData.mWaitingOnCommand = true;
+		logg.logMessage("Completed magic sequence");
 	}
 
-	pthread_mutex_init(&mSendMutex, NULL);
+	pthread_mutexattr_t attr;
+	if (pthread_mutexattr_init(&attr) != 0 ||
+			pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK) != 0 ||
+			pthread_mutex_init(&mSendMutex, &attr) != 0 ||
+			pthread_mutexattr_destroy(&attr) != 0 ||
+			false) {
+		logg.logError("Unable to setup mutex");
+		handleException();
+	}
 }
 
 Sender::~Sender() {
@@ -67,18 +75,24 @@ void Sender::createDataFile(char* apcDir) {
 	sprintf(mDataFileName, "%s/0000000000", apcDir);
 	mDataFile = fopen_cloexec(mDataFileName, "wb");
 	if (!mDataFile) {
-		logg->logError(__FILE__, __LINE__, "Failed to open binary file: %s", mDataFileName);
+		logg.logError("Failed to open binary file: %s", mDataFileName);
 		handleException();
 	}
 }
 
-void Sender::writeData(const char* data, int length, int type) {
+void Sender::writeData(const char* data, int length, int type, bool ignoreLockErrors) {
 	if (length < 0 || (data == NULL && length > 0)) {
 		return;
 	}
 
 	// Multiple threads call writeData()
-	pthread_mutex_lock(&mSendMutex);
+	if (pthread_mutex_lock(&mSendMutex) != 0) {
+		if (ignoreLockErrors) {
+			return;
+		}
+		logg.logError("pthread_mutex_lock failed");
+		handleException();
+	}
 
 	// Send data over the socket connection
 	if (mDataSocket) {
@@ -87,7 +101,7 @@ void Sender::writeData(const char* data, int length, int type) {
 		alarm(alarmDuration);
 
 		// Send data over the socket, sending the type and size first
-		logg->logMessage("Sending data with length %d", length);
+		logg.logMessage("Sending data with length %d", length);
 		if (type != RESPONSE_APC_DATA) {
 			// type and length already added by the Collector for apc data
 			unsigned char header[5];
@@ -100,7 +114,7 @@ void Sender::writeData(const char* data, int length, int type) {
 		const int chunkSize = 100*1000 * alarmDuration / 8;
 		int pos = 0;
 		while (true) {
-			mDataSocket->send((const char*)data + pos, min(length - pos, chunkSize));
+			mDataSocket->send(data + pos, min(length - pos, chunkSize));
 			pos += chunkSize;
 			if (pos >= length) {
 				break;
@@ -108,7 +122,7 @@ void Sender::writeData(const char* data, int length, int type) {
 
 			// Reset the alarm
 			alarm(alarmDuration);
-			logg->logMessage("Resetting the alarm");
+			logg.logMessage("Resetting the alarm");
 		}
 
 		// Stop alarm
@@ -117,13 +131,16 @@ void Sender::writeData(const char* data, int length, int type) {
 
 	// Write data to disk as long as it is not meta data
 	if (mDataFile && type == RESPONSE_APC_DATA) {
-		logg->logMessage("Writing data with length %d", length);
+		logg.logMessage("Writing data with length %d", length);
 		// Send data to the data file
 		if (fwrite(data, 1, length, mDataFile) != (unsigned int)length) {
-			logg->logError(__FILE__, __LINE__, "Failed writing binary file %s", mDataFileName);
+			logg.logError("Failed writing binary file %s", mDataFileName);
 			handleException();
 		}
 	}
 
-	pthread_mutex_unlock(&mSendMutex);
+	if (pthread_mutex_unlock(&mSendMutex) != 0) {
+		logg.logError("pthread_mutex_unlock failed");
+		handleException();
+	}
 }
