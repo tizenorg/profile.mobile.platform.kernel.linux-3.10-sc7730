@@ -334,6 +334,9 @@ struct sprd_drm_gem_obj *sprd_drm_gem_init(struct drm_device *dev,
 		return NULL;
 	}
 
+	sprd_gem_obj->pid = task_pid_nr(current);
+	sprd_gem_obj->tgid = task_tgid_nr(current);
+
 	DRM_DEBUG_KMS("created file object = 0x%x\n", (unsigned int)obj->filp);
 
 	return sprd_gem_obj;

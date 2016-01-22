@@ -45,7 +45,6 @@ struct sprd_drm_ipp_private {
 
 struct drm_sprd_file_private {
 	struct sprd_drm_ipp_private	*ipp_priv;
-	pid_t tgid;
 };
 
 /*

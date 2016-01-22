@@ -88,8 +88,9 @@ struct sprd_drm_gem_obj {
 	struct sprd_drm_gem_buf	*buffer;
 	unsigned long			size;
 	unsigned int			flags;
-
-        int lockpid;
+        int	lockpid;
+	pid_t	pid;
+	pid_t	tgid;
         struct drm_sprd_gem_object_wait_list_entry
         wait_entries[DRM_SPRD_HANDLE_WAIT_ENTRIES];
 

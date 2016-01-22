@@ -49,9 +49,6 @@ static int sprd_drm_gem_one_info(int id, void *ptr, void *data)
 {
 	struct drm_gem_object *obj = (struct drm_gem_object *)ptr;
 	struct sprd_drm_gem_info_data *gem_info_data = data;
-	struct pid *pid = gem_info_data->filp->pid;
-	struct drm_sprd_file_private *file_priv =
-			gem_info_data->filp->driver_priv;
 	struct sprd_drm_gem_obj *sprd_gem;
 	struct sprd_drm_gem_buf *buf;
 
@@ -68,8 +65,8 @@ static int sprd_drm_gem_one_info(int id, void *ptr, void *data)
 	seq_printf(gem_info_data->m,
 			"%5d\t%5d\t%4d\t%4d\t\t%4d\t0x%08lx\t0x%x\t%4d\t%4d\t\t"
 			"%4d\t\t0x%p\t%6d\n",
-				pid_nr(pid),
-				file_priv->tgid,
+				(unsigned long)sprd_gem->pid,
+				(unsigned long)sprd_gem->tgid,
 				id,
 				atomic_read(&obj->refcount.refcount) - 1,
 				obj->handle_count,
@@ -309,7 +306,6 @@ static int sprd_drm_open(struct drm_device *dev, struct drm_file *file)
 	if (!file_priv)
 		return -ENOMEM;
 
-	file_priv->tgid = task_tgid_nr(current);
 	file->driver_priv = file_priv;
 
 	return sprd_drm_subdrv_open(dev, file);
