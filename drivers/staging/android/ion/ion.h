@@ -127,6 +127,7 @@ struct ion_handle *ion_alloc_with_gem(struct ion_client *client, size_t len,
 					size_t align, unsigned int heap_id_mask,
 					unsigned int flags,
 					struct drm_gem_object *obj);
+struct drm_gem_object *ion_get_gem(struct ion_handle *handle);
 #endif
 /**
  * ion_free - free a handle

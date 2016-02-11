@@ -576,6 +576,15 @@ struct ion_handle *ion_alloc_with_gem(struct ion_client *client, size_t len,
 	return handle;
 }
 EXPORT_SYMBOL(ion_alloc_with_gem);
+
+struct drm_gem_object *ion_get_gem(struct ion_handle *handle)
+{
+	if (handle && handle->buffer)
+		return handle->buffer->obj;
+
+	return NULL;
+}
+EXPORT_SYMBOL(ion_get_gem);
 #endif
 
 void ion_free(struct ion_client *client, struct ion_handle *handle)
@@ -1216,8 +1225,10 @@ static void ion_dma_buf_release(struct dma_buf *dmabuf)
 	ion_buffer_put(buffer);
 
 #ifdef CONFIG_DRM_SPRD
-	if (buffer->obj)
+	if (buffer->obj) {
 		drm_gem_object_unreference_unlocked(buffer->obj);
+		buffer->obj = NULL;
+	}
 #endif
 }
 
