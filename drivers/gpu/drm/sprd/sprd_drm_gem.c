@@ -537,6 +537,21 @@ struct drm_gem_object *sprd_prime_import(struct drm_device *dev,
 		goto err;
 	}
 
+	obj = ion_get_gem(ion_handle);
+	if (obj) {
+		sprd_gem_obj = to_sprd_gem_obj(obj);
+		if (sprd_gem_obj->buffer->ion_handle != ion_handle) {
+			DRM_ERROR("Unable get GEM object from ion\n");
+			ret = -EINVAL;
+			goto err;
+		}
+
+		drm_gem_object_reference(obj);
+		ion_free(private->sprd_drm_ion_client, ion_handle);
+
+		return obj;
+	}
+
 	buf = sprd_drm_init_buf(dev, size);
 	if (!buf) {
 		DRM_ERROR("Unable to allocate the GEM buffer\n");
