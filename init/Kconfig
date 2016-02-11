@@ -1327,6 +1327,12 @@ config PRINTK
 	  very difficult to diagnose system problems, saying N here is
 	  strongly discouraged.
 
+config MULTIPLE_KMSG
+	bool "Enable support for KMSG"
+	depends on PRINTK
+	help
+	  Enables mutiple kmsg support. Disabling uses default logger.
+
 config BUG
 	bool "BUG() support" if EXPERT
 	default y
