@@ -19,7 +19,9 @@
 #include <soc/sprd/cpuidle.h>
 
 extern struct drm_device *sprd_drm_dev;
+#ifdef CONFIG_FB_ESD_SUPPORT
 extern void panel_esd_enable (bool enable);
+#endif
 
 #ifdef CONFIG_OF
 extern unsigned long g_dispc_base_addr;
@@ -262,7 +264,9 @@ int sprd_enable_vblank(struct drm_device *dev, int crtc)
 		atomic_read(&dev_priv->vbl_trg_cnt[crtc]));
 
 	dev_priv->dbg_cnt = 2;
+#ifdef CONFIG_FB_ESD_SUPPORT
 	panel_esd_enable(false);
+#endif
 
 	return 0;
 }
@@ -281,7 +285,9 @@ void sprd_disable_vblank(struct drm_device *dev, int crtc)
 		atomic_read(&dev_priv->vbl_trg_cnt[crtc]));
 
 	atomic_set(&dev_priv->vbl_trg_cnt[crtc], 0);
+#ifdef CONFIG_FB_ESD_SUPPORT
 	panel_esd_enable(true);
+#endif
 }
 
 u32 sprd_drm_get_vblank_counter(struct drm_device *dev, int crtc)
