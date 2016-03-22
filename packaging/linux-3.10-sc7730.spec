@@ -42,12 +42,10 @@ print("\n")
 print("%files -n linux-3.10-sc7730_"..targets.." \n")
 print("/boot/kernel/mod_"..targets.." \n")
 print("/boot/kernel/kernel-"..targets.."/dzImage \n")
-print("/boot/kernel/kernel-"..targets.."/dzImage-recovery \n")
 print("\n")
 print("%post -n linux-3.10-sc7730_"..targets.." \n")
 print("cp -r /boot/kernel/mod_"..targets.."/lib/modules/* /lib/modules/. \n")
 print("mv /boot/kernel/kernel-"..targets.."/dzImage /boot/kernel/. \n")
-print("mv /boot/kernel/kernel-"..targets.."/dzImage-recovery /boot/kernel/. \n")
 print("\n")
 print("%description -n linux-3.10-sc7730_"..targets.." \n")
 print("This package provides the sc7730_eur linux kernel image & module.img. \n")
@@ -113,7 +111,6 @@ for i in %{BOARDS}; do
 
 	cp -f arch/arm/boot/zImage %_builddir/zImage.$target
 	cp -f arch/arm/boot/dzImage %_builddir/dzImage.$target
-	cp -f arch/arm/boot/dzImage %_builddir/dzImage-recovery.$target
 	cp -f System.map %_builddir/System.map.$target
 	cp -f .config %_builddir/config.$target
 	cp -f vmlinux %_builddir/vmlinux.$target
@@ -167,7 +164,6 @@ for i in %{BOARDS}; do
 
 	mv %_builddir/zImage.$target %{buildroot}/boot/kernel/kernel-$i/zImage
 	mv %_builddir/dzImage.$target %{buildroot}/boot/kernel/kernel-$i/dzImage
-	mv %_builddir/dzImage-recovery.$target %{buildroot}/boot/kernel/kernel-$i/dzImage-recovery
 
 	mv %_builddir/System.map.$target %{buildroot}/boot/kernel/kernel-$i/System.map
 	mv %_builddir/config.$target %{buildroot}/boot/kernel/kernel-$i/config
