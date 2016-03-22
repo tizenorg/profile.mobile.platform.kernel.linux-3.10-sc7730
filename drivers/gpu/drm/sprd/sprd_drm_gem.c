@@ -282,6 +282,25 @@ static int sprd_drm_gem_handle_create(struct drm_gem_object *obj,
 	return 0;
 }
 
+static void sprd_drm_gem_register_pid(struct drm_file *file_priv)
+{
+	struct drm_sprd_file_private *driver_priv = file_priv->driver_priv;
+
+	if (!driver_priv->pid && !driver_priv->tgid) {
+		driver_priv->pid = task_pid_nr(current);
+		driver_priv->tgid = task_tgid_nr(current);
+	} else {
+		if (driver_priv->pid != task_pid_nr(current))
+			DRM_DEBUG_KMS("wrong pid: %ld, %ld\n",
+					(unsigned long)driver_priv->pid,
+					(unsigned long)task_pid_nr(current));
+		if (driver_priv->tgid != task_tgid_nr(current))
+			DRM_DEBUG_KMS("wrong tgid: %ld, %ld\n",
+					(unsigned long)driver_priv->tgid,
+					(unsigned long)task_tgid_nr(current));
+	}
+}
+
 void sprd_drm_gem_destroy(struct sprd_drm_gem_obj *sprd_gem_obj)
 {
 	struct drm_gem_object *obj;
@@ -447,6 +466,8 @@ int sprd_drm_gem_create_ioctl(struct drm_device *dev, void *data,
 		return ret;
 	}
 
+	sprd_drm_gem_register_pid(file_priv);
+
 	do_gettimeofday(&val_end);
 	time_end = (uint64_t)(val_end.tv_sec * 1000000 + val_end.tv_usec);
 
@@ -480,6 +501,8 @@ int sprd_drm_gem_create_index_ioctl(struct drm_device *dev, void *data,
 		sprd_drm_gem_destroy(sprd_gem_obj);
 		return ret;
 	}
+
+	sprd_drm_gem_register_pid(file_priv);
 
 	DRM_INFO("%s:h[%d]cnt[%d]sz[%d %d %d]f[0x%x]o[0x%x]a[0x%x]\n",
 		__func__,args->handle, args->bufcount,
@@ -648,6 +671,22 @@ err:
 
 	return ERR_PTR(ret);
 }
+
+int sprd_drm_gem_prime_fd_to_handle(struct drm_device *dev,
+		struct drm_file *file_priv, int prime_fd, uint32_t *handle)
+{
+	int ret;
+
+	ret = drm_gem_prime_fd_to_handle(dev, file_priv, prime_fd, handle);
+	if (ret < 0)
+		goto out;
+
+	sprd_drm_gem_register_pid(file_priv);
+
+out:
+	return ret;
+}
+
 
 void *sprd_drm_gem_get_dma_addr(struct drm_device *dev,
 					unsigned int gem_handle,
@@ -1092,6 +1131,8 @@ int sprd_drm_gem_dumb_create(struct drm_file *file_priv,
 		sprd_drm_gem_destroy(sprd_gem_obj);
 		return ret;
 	}
+
+	sprd_drm_gem_register_pid(file_priv);
 
 	return 0;
 }

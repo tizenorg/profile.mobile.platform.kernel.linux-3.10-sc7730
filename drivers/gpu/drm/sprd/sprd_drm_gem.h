@@ -126,6 +126,9 @@ struct dma_buf *sprd_prime_export(struct drm_device *dev,
 struct drm_gem_object *sprd_prime_import(struct drm_device *dev,
 					 struct dma_buf *dma_buf);
 
+int sprd_drm_gem_prime_fd_to_handle(struct drm_device *dev,
+		struct drm_file *file_priv, int prime_fd, uint32_t *handle);
+
 /*
  * get dma address from gem handle and this function could be used for
  * other drivers such as 2d/3d acceleration drivers.
