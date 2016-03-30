@@ -143,7 +143,7 @@ static struct usb_descriptor_header *hs_sdb_descs[] = {
 
 /* static strings, in UTF-8 */
 static struct usb_string sdb_string_defs[] = {
-	[F_SDB_IDX].s = "Samsung SDB",
+	[F_SDB_IDX].s = "TIZEN SDB",
 	{  /* ZEROES END LIST */ },
 };
 
