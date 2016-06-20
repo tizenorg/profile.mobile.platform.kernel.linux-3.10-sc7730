@@ -2373,6 +2373,14 @@ static int tc300k_suspend(struct device *dev)
 
 	return 0;
 }
+
+static int tc300k_resume(struct device *dev)
+{
+	struct tc300k_data *data = dev_get_drvdata(dev);
+	struct input_dev *input_dev = data->input_dev;
+
+	return tc300k_input_open(input_dev);
+}
 #endif
 
 MODULE_DEVICE_TABLE(i2c, tc300k_id);
@@ -2380,6 +2388,7 @@ MODULE_DEVICE_TABLE(i2c, tc300k_id);
 #ifndef CONFIG_HAS_EARLYSUSPEND
 const struct dev_pm_ops tc300k_pm_ops = {
 	.suspend = tc300k_suspend,
+	.resume = tc300k_resume,
 };
 #endif
 
