@@ -761,7 +761,7 @@ static int ims1911_detect(struct ims1911_data *data)
 
 	if(i2c_read_byte(data, IMS1911_OPERATION_MODE_SEL, &val) == I2C_FAIL) {
 		dev_err(&data->client->dev, "ims1911 i2c fail : not found\n");
-		return -1;
+		return -EPROBE_DEFER;
 	}
 #if 0	
 	if(val != 0) {
