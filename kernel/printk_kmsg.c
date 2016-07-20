@@ -1064,11 +1064,7 @@ static ssize_t kmsg_read(struct log_buffer *log_b, struct file *file,
 	/* escape non-printable characters */
 	for (i = 0; i < msg->text_len; i++) {
 		unsigned char c = log_text(msg)[i];
-
-		if (c < ' ' || c >= 127 || c == '\\')
-			p += scnprintf(p, e - p, "\\x%02x", c);
-		else
-			append_char(&p, e, c);
+		append_char(&p, e, c);
 	}
 	append_char(&p, e, '\n');
 
@@ -1086,11 +1082,6 @@ static ssize_t kmsg_read(struct log_buffer *log_b, struct file *file,
 			if (c == '\0') {
 				append_char(&p, e, '\n');
 				line = true;
-				continue;
-			}
-
-			if (c < ' ' || c >= 127 || c == '\\') {
-				p += scnprintf(p, e - p, "\\x%02x", c);
 				continue;
 			}
 
